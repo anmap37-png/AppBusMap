@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Cache / logs
+.busmaps_cache/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

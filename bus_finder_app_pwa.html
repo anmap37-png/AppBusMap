@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BusMaps – Hà Nội</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root{
+      --card: rgba(16, 24, 40, 0.72);
+      --card2: rgba(16, 24, 40, 0.88);
+      --border: rgba(255,255,255,0.10);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.70);
+      --shadow: 0 18px 45px rgba(0,0,0,.35);
+      --radius: 18px;
+      --radius2: 24px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    *{box-sizing:border-box}
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #050a14; color: var(--text); }
+    #map { height: 100dvh; width: 100vw; }
+    .leaflet-control-attribution{ display:none; }
+
+    /* Topbar: search + POIs */
+    .topbar{
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      top: calc(12px + var(--safe-t));
+      z-index: 5000;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .search{
+      flex:1;
+      display:flex; align-items:center; gap:10px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: 999px;
+      padding: 10px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      min-height: 44px;
+    }
+    .search input{
+      flex:1;
+      border:none; outline:none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .search input::placeholder{color: rgba(255,255,255,.55); font-weight: 650}
+    .chip{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-weight: 750;
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip:active{transform: translateY(1px)}
+    .chip[disabled]{opacity:.45; pointer-events:none}
+
+    /* Nút Du lịch (nổi bật hơn) */
+    #btnPOIs{
+      border: 1px solid rgba(255, 196, 0, .55);
+      background: linear-gradient(135deg, rgba(255, 196, 0, .22), rgba(255, 90, 0, .12));
+      box-shadow: 0 10px 22px rgba(255, 160, 0, .18);
+    }
+    #btnPOIs:hover{
+      border-color: rgba(255, 196, 0, .78);
+      background: linear-gradient(135deg, rgba(255, 196, 0, .28), rgba(255, 90, 0, .18));
+    }
+
+    /* Floating controls */
+    .fab-col{
+      position: fixed;
+      right: 12px;
+      bottom: calc(12px + var(--safe-b) + 92px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 5000;
+    }
+    .fab{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-weight: 750;
+      font-size: 14px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      cursor: pointer;
+      user-select: none;
+      max-width: min(74vw, 320px);
+    }
+    .fab:active{transform: translateY(1px)}
+    .fab .dot{ width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,.35); }
+    .fab.active .dot{ background: #5aa9ff; }
+    .fab[disabled]{opacity:.45; pointer-events:none}
+
+    /* Toggle all controls */
+    .fab-group{
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+      max-height: 800px;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transform-origin: top right;
+      transition: max-height 220ms ease, opacity 220ms ease, transform 220ms ease;
+      will-change: max-height, opacity, transform;
+    }
+    .fab-group.hidden{
+      max-height: 0px;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.985);
+      pointer-events: none;
+    }
+
+    
+/* Toast */
+.toast{
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: calc(12px + var(--safe-b) + 12px);
+  transform: translateX(-50%);
+  z-index: 5100;
+
+  /* Compact, non-intrusive */
+  max-width: min(520px, calc(100vw - 24px));
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+
+  background: rgba(10, 18, 32, 0.90);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  display: none;
+  font-weight: 650;
+  font-size: 13.5px;
+  line-height: 1.2;
+
+  /* Keep it short */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  pointer-events: none;
+  user-select: none;
+}
+.toast.show{display:block}
+.toast.ok{
+  border-color: rgba(34,197,94,0.35);
+  box-shadow: 0 10px 28px rgba(34,197,94,0.12);
+}
+.toast.warn{
+  border-color: rgba(245,158,11,0.35);
+  box-shadow: 0 10px 28px rgba(245,158,11,0.12);
+}
+.toast.err{
+  border-color: rgba(239,68,68,0.35);
+  box-shadow: 0 10px 28px rgba(239,68,68,0.12);
+}
+    .toast.ok{border-color: rgba(55,214,122,.35)}
+    .toast.err{border-color: rgba(255,77,79,.45)}
+    .toast.warn{border-color: rgba(246,195,67,.45)}
+    .toast small{display:block; font-weight:650; color: var(--muted); margin-top:4px}
+
+    /* Bottom sheet */
+    .sheet{
+      position: fixed;
+      left: 0; right: 0;
+      bottom: 0;
+      z-index: 6000;
+      background: rgba(10, 18, 32, 0.92);
+      border-top: 1px solid var(--border);
+      border-top-left-radius: var(--radius2);
+      border-top-right-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding-bottom: var(--safe-b);
+      transform: translateY(calc(100% - 92px));
+      transition: transform 220ms ease, opacity 200ms ease;
+      will-change: transform;
+    }
+    .sheet.expanded{ transform: translateY(0%); }
+    
+    .sheet.hidden{
+      transform: translateY(110%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sheet.hidden.expanded{
+      transform: translateY(110%);
+    }
+.handle{
+      width: 48px; height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      margin: 10px auto 8px;
+      cursor: grab;
+      touch-action: pan-y;
+    }
+    .sheet-header{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 14px 12px;
+    }
+    .title{font-weight: 850; font-size: 15px; line-height: 1.2}
+    .subtitle{color: var(--muted); font-weight: 650; font-size: 12.5px; margin-top: 3px; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; max-width: 76vw;}
+    .icon-btn{
+      width: 38px; height: 38px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight: 900;
+      cursor:pointer;
+      user-select:none;
+    }
+    .icon-btn:active{transform: translateY(1px)}
+    .sheet-body{
+      padding: 0 14px 14px;
+      max-height: min(68vh, 520px);
+      overflow: auto;
+    }
+    .card{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .row{display:flex; align-items:center; justify-content: space-between; gap: 12px; flex-wrap: wrap;}
+    .k{color: var(--muted); font-weight: 700; font-size: 12.5px}
+    .v{font-weight: 850; font-size: 13.5px}
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .btn{
+      width: 100%;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      font-weight: 850;
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select:none;
+      text-align:center;
+      margin-top: 10px;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.danger{border-color: rgba(255,77,79,.45); background: rgba(255,77,79,.10)}
+    .btn.primary{border-color: rgba(90,169,255,.45); background: rgba(90,169,255,.14)}
+
+    .seg{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      border-radius: 16px;
+      padding: 10px 10px;
+      margin-top: 10px;
+    }
+    .seg h4{ margin: 0 0 6px; font-size: 13.5px; font-weight: 900; }
+    .seg p{ margin: 0; color: var(--muted); font-weight: 650; font-size: 12.5px; line-height: 1.35 }
+    .seg-actions{ display:flex; gap:10px; margin-top: 8px }
+    .seg-actions .mini{
+      flex:1;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      padding: 9px 10px;
+      font-weight: 850;
+      cursor: pointer;
+      user-select:none;
+      text-align:center;
+    }
+    .seg-actions .mini:active{transform: translateY(1px)}
+
+    /* Subsheet */
+    .subsheet{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 7000;
+      background: rgba(10,18,32,0.96);
+      border-top: 1px solid var(--border);
+      border-top-left-radius: var(--radius2);
+      border-top-right-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding-bottom: var(--safe-b);
+      transform: translateY(100%);
+      transition: transform 220ms ease, opacity 200ms ease;
+    }
+    .subsheet.open{transform: translateY(0%)}
+    .subhead{ display:flex; align-items:center; gap:10px; padding: 10px 14px 12px; }
+    .back{
+      width: 40px; height: 40px; border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      display:flex; align-items:center; justify-content:center;
+      font-weight: 900;
+      cursor:pointer;
+      user-select:none;
+    }
+    .subtitle2{ font-weight: 900; font-size: 14px; line-height: 1.2; margin: 0; }
+    .hint{ color: rgba(255,255,255,.85); font-weight: 750; font-size: 12.5px; margin: 6px 0 0; }
+    .subbody{ padding: 0 14px 14px; max-height: min(70vh, 560px); overflow:auto; }
+    .list-item{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      border-radius: 16px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .list-item:active{transform: translateY(1px)}
+    .list-item .name{font-weight: 900}
+    .list-item .meta{color: var(--muted); font-weight: 650; font-size: 12.5px; margin-top: 3px}
+  
+    /* ===== POI detail modal ===== */
+    .poi-modal{
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      display: none;
+    }
+    .poi-modal.show{ display:block; }
+    .poi-backdrop{
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .poi-panel{
+      position: absolute;
+      left: 12px; right: 12px;
+      top: calc(12px + var(--safe-t));
+      bottom: calc(12px + var(--safe-b));
+      background: rgba(10,18,32,0.96);
+      border: 1px solid var(--border);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .poi-head{
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .poi-head h3{ margin:0; font-size: 16px; font-weight: 950; line-height: 1.15; }
+    .poi-head p{ margin: 6px 0 0; color: var(--muted); font-weight: 650; font-size: 12.8px; line-height: 1.35; }
+    .poi-close{
+      width: 40px; height: 40px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;
+      user-select:none;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .poi-close:active{ transform: translateY(1px); }
+
+    .poi-back{
+      width: 40px; height: 40px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;
+      user-select:none;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .poi-back:active{ transform: translateY(1px); }
+
+    .poi-body{
+      padding: 12px 14px 14px;
+      overflow: auto;
+    }
+    .poi-gallery{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      border-radius: 18px;
+      padding: 10px;
+      --poiMainH: min(52vh, 420px);
+    }
+    .poi-gallery.portrait{ --poiMainH: min(64vh, 600px); }
+    .poi-main-wrap{
+      width: 100%;
+      height: var(--poiMainH);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,0.22);
+    }
+    .poi-main{
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display:block;
+    }
+    .poi-gbar{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .poi-nav{
+      display:flex;
+      gap: 8px;
+    }
+    .poi-nav button{
+      width: 44px; height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight: 950;
+      cursor: pointer;
+      user-select:none;
+    }
+    .poi-nav button:active{ transform: translateY(1px); }
+    .poi-count{
+      color: var(--muted);
+      font-weight: 750;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+    .poi-thumbs{
+      display:flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-top: 10px;
+      padding-bottom: 4px;
+    }
+    .poi-thumb{
+      width: 84px; height: 58px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      opacity: .80;
+      cursor: pointer;
+      user-select:none;
+      flex: 0 0 auto;
+      background: rgba(255,255,255,.02);
+    }
+    .poi-thumb.active{
+      opacity: 1;
+      border-color: rgba(90,169,255,.55);
+      box-shadow: 0 10px 22px rgba(0,0,0,.25);
+    }
+
+    .poi-note{
+      margin-top: 10px;
+      color: rgba(255,255,255,.82);
+      font-weight: 700;
+      font-size: 12.8px;
+      line-height: 1.35;
+    }
+/* ===== Landing / Intro styles ===== */
+:root{
+  --intro-bg: #0c3e54;     /* xanh đậm như mẫu */
+  --intro-panel: #0b2f3e;  /* panel trái đậm hơn */
+  --intro-yellow: #ffd400; /* chữ PUBLIC màu vàng */
+  --intro-white: #ffffff;
+}
+
+.intro-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: none; /* mặc định ẩn, JS sẽ bật */
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(10px);
+}
+
+.intro-overlay.is-open{ display:flex; }
+
+.intro-card{
+  width: min(980px, 100%);
+  height: min(520px, 92vh);
+  border-radius: 14px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  box-shadow: 0 26px 90px rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.10);
+  background: var(--intro-bg);
+}
+
+/* Left */
+.intro-left{
+  padding: 26px 28px;
+  background: linear-gradient(180deg, rgba(7,26,37,0.78), rgba(6,20,28,0.88));
+  display:flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.intro-credit{
+  font-size: 14px;
+  color: rgba(255,255,255,0.85);
+}
+.intro-author{
+  color: var(--intro-yellow);
+  font-weight: 800;
+}
+
+.intro-line{
+  height: 2px;
+  background: rgba(255,255,255,0.18);
+  width: 100%;
+}
+
+.intro-title{
+  margin-top: 8px;
+  line-height: 0.95;
+}
+
+.intro-title-public{
+  font-size: clamp(42px, 7vw, 78px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--intro-yellow);
+}
+
+.intro-title-transport{
+  font-size: clamp(46px, 7.8vw, 86px);
+  font-weight: 950;
+  letter-spacing: 1px;
+  color: var(--intro-white);
+  margin-top: 6px;
+}
+
+.intro-sub{
+  margin-top: auto;
+  font-size: 14px;
+  color: rgba(255,255,255,0.80);
+}
+
+/* Actions */
+.intro-actions{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.intro-skip{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+}
+
+.intro-btn{
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(255, 212, 0, 0.35);
+  background: rgba(255, 212, 0, 0.18);
+  color: #fff;
+  cursor: pointer;
+}
+.intro-btn:hover{
+  background: rgba(255, 212, 0, 0.26);
+}
+
+/* Right image */
+.intro-right{
+  position: relative;
+  background:
+    linear-gradient(90deg, rgba(10,30,42,0.25), rgba(10,30,42,0.05)),
+    url("/assets/landing_bus.jpg"); /* <- bạn đổi đường dẫn ảnh tại đây */
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(1) contrast(1.1) brightness(0.95);
+}
+
+/* Responsive: mobile stack */
+@media (max-width: 860px){
+  .intro-card{
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: 92vh;
+  }
+  .intro-right{
+    min-height: 220px;
+    order: -1; /* ảnh lên trên */
+  }
+}
+/* ===== End Landing / Intro styles ===== */
+
+  
+/* ===== Mobile optimizations (UI only — keep all functions) ===== */
+@media (max-width: 520px) {
+  /* Safer viewport on iOS Safari */
+  .intro-overlay{
+    padding: calc(env(safe-area-inset-top) + 14px) 12px calc(env(safe-area-inset-bottom) + 14px);
+    align-items: flex-start;
+    overflow: auto;
+  }
+  .intro-card{
+    width: 100%;
+    max-width: 520px;
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+  .intro-right{
+    height: 150px;
+    min-height: 150px;
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .intro-left{
+    padding: 18px 16px 16px;
+  }
+  .intro-credit{ font-size: 13px; }
+  .intro-title-public{
+    font-size: clamp(28px, 9vw, 44px);
+    letter-spacing: .02em;
+  }
+  .intro-title-transport{
+    font-size: clamp(34px, 10.5vw, 54px);
+    letter-spacing: .02em;
+    line-height: 0.98;
+    overflow-wrap: anywhere;  /* prevent clipping */
+    word-break: break-word;
+  }
+  .intro-sub{
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .intro-actions{
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .intro-btn{
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+  }
+
+  /* Topbar: keep usable on small screens */
+  .topbar{
+    left: 10px;
+    right: 10px;
+    top: calc(env(safe-area-inset-top) + 8px);
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .search{
+    min-width: 0;
+    flex: 1 1 100%;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  #placeInput{
+    font-size: 14px;
+    min-width: 0;
+  }
+  .chip{
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+  #btnPOIs{
+    align-self: flex-end;
+  }
+
+  /* Action buttons column */
+  .fab-col{
+    right: 10px;
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .fab{
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  /* Bottom sheet */
+  .sheet{
+    left: 10px;
+    right: 10px;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+  }
+
+  /* POI list panel */
+  .poi-panel{
+    left: 10px;
+    right: 10px;
+    top: calc(env(safe-area-inset-top) + 64px);
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+  }
+  .poi-list .poi-item{
+    padding: 12px 12px;
+  }
+
+  /* POI modal */
+  .poi-modal{
+    padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);
+  }
+  .poi-modal-card{
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
+  }
+}
+
+/* Extra: short-height phones (landscape) */
+@media (max-width: 740px) and (max-height: 520px) {
+  .intro-overlay{ padding: 10px; }
+  .intro-right{ height: 120px; min-height: 120px; }
+  .poi-modal-card{ max-height: calc(100vh - 20px); }
+}
+/* ===== End mobile optimizations ===== */
+
+
+/* ===== GPS Permission Help (mobile) ===== */
+#locationHelpModal{
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(0,0,0,0.45);
+}
+#locationHelpModal.show{ display:flex; }
+#locationHelpModal .lh-card{
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+  background: rgba(17,24,39,0.92);
+  color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  padding: 16px 16px 12px;
+}
+#locationHelpModal .lh-title{
+  font-weight: 900;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+#locationHelpModal .lh-body{
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.85);
+}
+#locationHelpModal .lh-body b{ color: #fff; }
+#locationHelpModal .lh-actions{
+  display:flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+#locationHelpModal .lh-btn{
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.92);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+#locationHelpModal .lh-btn.primary{
+  background: rgba(59,130,246,0.85);
+  border-color: rgba(59,130,246,0.6);
+}
+#locationHelpModal .lh-list{
+  margin: 10px 0 0 16px;
+}
+#locationHelpModal .lh-list li{ margin: 6px 0; }
+#locationHelpModal code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+/* ===== End GPS Permission Help ===== */
+
+</style>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#0b1020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BusMap Plus">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    
+</head>
+
+<body>
+  <!-- ===== Landing / Intro Overlay ===== -->
+<div id="introOverlay" class="intro-overlay" aria-hidden="true">
+  <div class="intro-card">
+    <!-- Left panel -->
+    <section class="intro-left">
+      <div class="intro-credit">
+        Create By <span class="intro-author">_NGDAN89</span>
+      </div>
+
+      <div class="intro-line"></div>
+
+      <div class="intro-title">
+        <div class="intro-title-public">PUBLIC</div>
+        <div class="intro-title-transport">TRANSPORTATION</div>
+      </div>
+
+      <div class="intro-line"></div>
+
+      <div class="intro-sub">
+        BusMaps Hà Nội • Tìm trạm gần nhất • Gợi ý lộ trình • Điểm du lịch
+      </div>
+
+      <div class="intro-actions">
+        <label class="intro-skip">
+          <input id="introSkip" type="checkbox" />
+          Không hiện lại lần sau
+        </label>
+
+        <button id="btnStartApp" class="intro-btn">
+          ▶ Bắt đầu
+        </button>
+      </div>
+    </section>
+
+    <!-- Right panel (bus photo) -->
+    <section class="intro-right" role="img" aria-label="Bus photo"></section>
+  </div>
+</div>
+<!-- ===== End Landing / Intro Overlay ===== -->
+
+  <div id="map"></div>
+
+  <div class="topbar">
+    <div class="search">
+      <span>🔎</span>
+      <input id="placeInput" placeholder="Tìm địa điểm ở Hà Nội (ví dụ: Bến xe Mỹ Đình)" autocomplete="off" />
+      <button id="btnPlaceGo" class="chip">Đi</button>
+    </div>
+    <button id="btnPOIs" class="chip">🏛️ Du lịch</button>
+  </div>
+
+  <div class="fab-col">
+    <div class="fab active" id="btnToggleControls" title="Bật/Tắt các phím chức năng">
+      <span class="dot"></span><span class="ico">✕</span> <span class="label">Ẩn phím chức năng</span>
+    </div>
+    <div class="fab-group" id="fabGroup">
+      <div class="fab" id="btnGPS"><span class="dot"></span>🧭 <span>Vị trí của tôi</span></div>
+      <div class="fab" id="btnPickStart"><span class="dot"></span>🟢 <span>Chọn điểm xuất phát</span></div>
+      <div class="fab" id="btnPickDest"><span class="dot"></span>📍 <span>Chọn điểm đến</span></div>
+      <div class="fab" id="btnToggleStops"><span class="dot"></span>🚏 <span>Hiện trạm xe</span></div>
+      <div class="fab" id="btnNearest"><span class="dot"></span>📌 <span>Trạm gần tôi</span></div>
+      <div class="fab" id="btnClear"><span class="dot"></span>🧹 <span>Xoá lộ trình</span></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="sheet hidden" id="sheet">
+    <div class="handle" id="handle" aria-label="Kéo để mở/đóng"></div>
+    <div class="sheet-header">
+      <div style="min-width:0">
+        <div class="title" id="sheetTitle">Lộ trình</div>
+        <div class="subtitle" id="sheetSubtitle">Chọn điểm đến để xem lộ trình</div>
+      </div>
+      <div style="display:flex; gap:8px">
+        <div class="icon-btn" id="btnExpand" title="Mở rộng">⤢</div>
+        <div class="icon-btn" id="btnCloseSheet" title="Ẩn">×</div>
+      </div>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+
+  <div class="subsheet" id="subsheet" aria-hidden="true">
+    <div class="subhead">
+      <div class="back" id="subBack" title="Quay lại">←</div>
+      <div style="min-width:0">
+        <p class="subtitle2" id="subTitle">Danh sách</p>
+        <p class="hint" id="subHint"></p>
+      </div>
+    </div>
+    <div class="subbody" id="subBody"></div>
+  </div>
+
+
+  <!-- POI detail modal -->
+  <div class="poi-modal" id="poiModal" aria-hidden="true">
+    <div class="poi-backdrop" id="poiBackdrop"></div>
+    <div class="poi-panel" role="dialog" aria-modal="true" aria-labelledby="poiModalTitle">
+      <div class="poi-head">
+        <div class="poi-back" id="poiModalBack" title="Quay lại">←</div>
+        <div style="min-width:0; flex:1">
+          <h3 id="poiModalTitle">Điểm du lịch</h3>
+          <p id="poiModalIntro">Giới thiệu</p>
+        </div>
+        <div class="poi-close" id="poiModalClose" title="Đóng">×</div>
+      </div>
+      <div class="poi-body">
+        <div class="poi-gallery" id="poiGallery">
+          <div class="poi-main-wrap" id="poiMainWrap">
+            <img id="poiMainImg" class="poi-main" alt="Ảnh điểm du lịch" />
+          </div>
+          <div class="poi-gbar">
+            <div class="poi-nav">
+              <button id="poiPrev" title="Ảnh trước">‹</button>
+              <button id="poiNext" title="Ảnh sau">›</button>
+            </div>
+            <div class="poi-count" id="poiCount">1/1</div>
+          </div>
+          <div class="poi-thumbs" id="poiThumbs"></div>
+        </div>
+
+        <div class="poi-note" id="poiExtraNote"></div>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+(() => {
+  const API_BASE = `${location.origin}/api`;
+
+  // ====== Điểm du lịch nổi tiếng (Hà Nội) ======
+  const TOUR_POIS = [
+    { id:"ho_guom", name:"Hồ Hoàn Kiếm", lat:21.028511, lon:105.852019, note:"Trung tâm Hà Nội" },
+    { id:"pho_co", name:"Phố cổ Hà Nội", lat:21.035463, lon:105.850847, note:"Khu phố đi bộ/ẩm thực" },
+    { id:"van_mieu", name:"Văn Miếu – Quốc Tử Giám", lat:21.027763, lon:105.835091, note:"Di tích lịch sử" },
+    { id:"lang_bac", name:"Lăng Chủ tịch Hồ Chí Minh", lat:21.036874, lon:105.834676, note:"Quảng trường Ba Đình" },
+    { id:"chua_mot_cot", name:"Chùa Một Cột", lat:21.035911, lon:105.832401, note:"Gần Lăng Bác" },
+    { id:"tran_quoc", name:"Chùa Trấn Quốc", lat:21.048117, lon:105.836164, note:"Hồ Tây" },
+    { id:"ho_tay", name:"Hồ Tây", lat:21.055407, lon:105.818146, note:"Dạo quanh hồ" },
+    { id:"hoang_thanh", name:"Hoàng thành Thăng Long", lat:21.035758, lon:105.840548, note:"Di sản UNESCO" },
+    { id:"nha_tho_lon", name:"Nhà thờ Lớn Hà Nội", lat:21.028748, lon:105.848968, note:"Gần hồ Hoàn Kiếm" },
+    { id:"nha_hat_lon", name:"Nhà hát Lớn Hà Nội", lat:21.024489, lon:105.857133, note:"Kiến trúc Pháp" },
+    { id:"cau_long_bien", name:"Cầu Long Biên", lat:21.045256, lon:105.854755, note:"Check-in buổi tối" },
+    { id:"bao_tang_dth", name:"Bảo tàng Dân tộc học", lat:21.040595, lon:105.800240, note:"Cầu Giấy" },
+    { id:"lotte", name:"Lotte Center Hanoi", lat:21.031401, lon:105.813484, note:"View sky deck" },
+    { id:"ben_xe_my_dinh", name:"Bến xe Mỹ Đình", lat:21.028885, lon:105.778470, note:"Trung chuyển lớn" }
+  ];
+
+  // ===== POI chi tiết (ảnh + giới thiệu) =====
+  // Gợi ý: Bạn có thể thay các ảnh "placeholder" bằng ảnh thật:
+  // - Ảnh online: "https://....jpg"
+  // - Ảnh local:  "/static/pois/vanmieu_1.jpg" (nếu bạn tự phục vụ file tĩnh)
+  function svgPlaceholder(title, subtitle){
+    const safeTitle = String(title || "").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const safeSub = String(subtitle || "").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+        <defs>
+          <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#0b1b33"/>
+            <stop offset="1" stop-color="#102a44"/>
+          </linearGradient>
+        </defs>
+        <rect width="1200" height="700" fill="url(#g)"/>
+        <rect x="40" y="40" width="1120" height="620" rx="44" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)"/>
+        <text x="80" y="160" fill="rgba(255,255,255,0.92)" font-size="64" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-weight="900">
+          ${safeTitle}
+        </text>
+        <text x="80" y="240" fill="rgba(255,255,255,0.72)" font-size="34" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-weight="650">
+          ${safeSub}
+        </text>
+        <text x="80" y="620" fill="rgba(255,255,255,0.58)" font-size="26" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-weight="650">
+          (Ảnh minh hoạ – bạn có thể thay bằng ảnh thật)
+        </text>
+      </svg>
+    `.trim();
+    return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  }
+
+  // ============ Ảnh online (Wikimedia ưu tiên, fallback Unsplash) + cache ============
+  const POI_IMAGE_COUNT = 10;
+  const POI_IMG_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 ngày
+
+  function _poiImgCacheKey(poiId){ return `bm_poi_imgs_v1_${poiId}`; }
+  function _getCachedPoiImages(poiId){
+    try{
+      const raw = localStorage.getItem(_poiImgCacheKey(poiId));
+      if (!raw) return null;
+      const j = JSON.parse(raw);
+      if (!j || !Array.isArray(j.urls) || !j.urls.length) return null;
+      if (j.ts && (Date.now() - Number(j.ts)) > POI_IMG_CACHE_TTL_MS) return null;
+      return j.urls.filter(Boolean);
+    }catch{ return null; }
+  }
+  function _setCachedPoiImages(poiId, urls){
+    try{
+      localStorage.setItem(_poiImgCacheKey(poiId), JSON.stringify({ ts: Date.now(), urls: (urls||[]).filter(Boolean) }));
+    }catch{}
+  }
+
+  function unsplashImages(keyword, count = POI_IMAGE_COUNT){
+    const k = encodeURIComponent(keyword);
+    // Unsplash source: không cần token, nhưng ảnh có thể thay đổi theo thời điểm.
+    return Array.from({length: count}, (_, i) => `https://source.unsplash.com/featured/1200x800/?${k}&sig=${i+1}`);
+  }
+
+  async function wikimediaImages(keyword, count = POI_IMAGE_COUNT){
+    try {
+      const q = String(keyword || '').trim();
+      if (!q) return [];
+      // 1) search File: pages (namespace 6)
+      const u1 = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srnamespace=6&srlimit=${Math.max(8, count*3)}&srsearch=${encodeURIComponent(q)}&format=json&origin=*`;
+      const j1 = await fetch(u1).then(r => r.json()).catch(() => null);
+      const titles = (j1?.query?.search || []).map(x => x.title).filter(t => /^File:/i.test(t));
+      if (!titles.length) return [];
+
+      // 2) fetch imageinfo (thumburl)
+      const joined = titles.slice(0, Math.max(12, count*3)).join('|');
+      const u2 = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(joined)}&prop=imageinfo&iiprop=url&iiurlwidth=1200&format=json&origin=*`;
+      const j2 = await fetch(u2).then(r => r.json()).catch(() => null);
+      const pages = j2?.query?.pages || {};
+      const out = [];
+      for (const k of Object.keys(pages)){
+        const ii = pages[k]?.imageinfo?.[0];
+        const url = ii?.thumburl || ii?.url;
+        if (!url) continue;
+        if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) continue;
+        out.push(url);
+      }
+      return out.slice(0, count);
+    } catch {
+      return [];
+    }
+  }
+
+  async function getPoiImages(poi){
+    const poiId = poi?.id || '';
+    if (!poiId) return [svgPlaceholder(poi?.name || 'POI', 'Không có dữ liệu')];
+
+    const cached = _getCachedPoiImages(poiId);
+    if (cached && cached.length >= 3){
+      // đảm bảo đủ 10 ảnh (nếu cache ít hơn)
+      if (cached.length >= POI_IMAGE_COUNT) return cached.slice(0, POI_IMAGE_COUNT);
+      const d = POI_DETAILS[poiId] || {};
+      const kw = (d.keyword || poi.name || '').trim();
+      return cached.concat(unsplashImages(kw + ' Hanoi', POI_IMAGE_COUNT - cached.length));
+    }
+
+    const d = POI_DETAILS[poiId] || {};
+    const kw = (d.keyword || poi.name || '').trim();
+    const wiki = await wikimediaImages(kw + ' Hanoi', POI_IMAGE_COUNT);
+
+    let urls = wiki && wiki.length ? wiki : [];
+    if (urls.length < POI_IMAGE_COUNT){
+      urls = urls.concat(unsplashImages(kw + ' Hanoi', POI_IMAGE_COUNT - urls.length));
+    }
+    urls = urls.slice(0, POI_IMAGE_COUNT);
+    if (urls.length) _setCachedPoiImages(poiId, urls);
+    return urls.length ? urls : [svgPlaceholder(poi?.name || 'POI', 'Không tải được ảnh')];
+  }
+
+  // ===== POI chi tiết (giới thiệu + địa chỉ/giờ/giá + tips bus) =====
+  // Lưu ý: Giờ mở cửa/giá vé có thể thay đổi theo thời điểm. Bạn có thể chỉnh trực tiếp tại đây.
+  const POI_DETAILS = {
+    ho_guom: {
+      keyword: 'Hoan Kiem Lake',
+      intro: `Hồ Hoàn Kiếm (Hồ Gươm) là biểu tượng trung tâm của Hà Nội, gắn với truyền thuyết vua Lê trả gươm và không gian đi bộ quanh hồ. Khu vực này rất phù hợp để dạo bộ, chụp ảnh Tháp Rùa, Đền Ngọc Sơn và trải nghiệm nhịp sống phố cổ.`,
+      address: `Khu vực hồ Hoàn Kiếm, quận Hoàn Kiếm, Hà Nội`,
+      hours: `Không giới hạn (khu vực công cộng). Phố đi bộ quanh hồ thường hoạt động cuối tuần (thường từ 19:00 Thứ Sáu đến 24:00 Chủ Nhật).`,
+      ticket: `Miễn phí`,
+      busTips: [
+        `Đi bus đến khu vực Tràng Thi / Bờ Hồ, sau đó đi bộ 3–10 phút.`,
+        `Nếu đi cuối tuần (phố đi bộ), nên xuống sớm hơn một trạm để tránh cấm đường.`
+      ],
+      note: `Gợi ý: cuối tuần thường có phố đi bộ; buổi tối mát và nhiều hoạt động.`
+    },
+    pho_co: {
+      keyword: 'Hanoi Old Quarter',
+      intro: `Phố cổ Hà Nội là khu phố lâu đời với mạng lưới 36 phố phường, nổi tiếng bởi kiến trúc nhà ống, ẩm thực đường phố và không khí sầm uất. Đây là nơi “vào mood” Hà Nội nhất với cà phê, chợ đêm và vô số góc check‑in.`,
+      address: `Khu phố cổ, quận Hoàn Kiếm, Hà Nội`,
+      hours: `Khu phố hoạt động cả ngày; chợ đêm thường cuối tuần.`,
+      ticket: `Miễn phí`,
+      busTips: [
+        `Nên xuống bus ở các điểm rìa phố cổ (Hàng Đậu/Trần Quang Khải/Tràng Thi) rồi đi bộ vào trong.`,
+        `Đi bộ là hợp lý nhất, tránh giờ cao điểm nếu di chuyển bằng xe.`
+      ],
+      note: `Gợi ý: đi bộ là hợp lý nhất; tránh giờ cao điểm nếu di chuyển bằng xe.`
+    },
+    van_mieu: {
+      keyword: 'Temple of Literature Hanoi',
+      intro: `Văn Miếu – Quốc Tử Giám là quần thể di tích tiêu biểu của Hà Nội, gắn với truyền thống hiếu học và văn hóa khoa bảng. Nơi đây thờ Khổng Tử, các bậc hiền triết và lưu giữ hệ thống bia Tiến sĩ – dấu ấn lịch sử giáo dục Việt Nam.`,
+      address: `58 Quốc Tử Giám, phường Văn Miếu, quận Đống Đa, Hà Nội`,
+      hours: `Mùa hè (01/4–31/10): 07:30–17:30 • Mùa đông (01/11–31/3): 08:00–17:00`,
+      ticket: `Tham khảo: ~70.000đ/người lớn (có thể thay đổi)`,
+      busTips: [
+        `Xuống bus gần phố Quốc Tử Giám / Tôn Đức Thắng rồi đi bộ 5–10 phút.`,
+        `Đi sớm để tránh đông, đặc biệt cuối tuần.`
+      ],
+      note: `Gợi ý: nên đi sáng sớm để tránh đông; khuôn viên rất đẹp để chụp ảnh.`
+    },
+    lang_bac: {
+      keyword: 'Ho Chi Minh Mausoleum Hanoi',
+      intro: `Lăng Chủ tịch Hồ Chí Minh nằm tại Quảng trường Ba Đình – trung tâm chính trị của Việt Nam. Khu vực xung quanh còn có Phủ Chủ tịch, nhà sàn Bác Hồ và nhiều điểm tham quan lịch sử lân cận.`,
+      address: `2 Hùng Vương, Ba Đình, Hà Nội (khu Quảng trường Ba Đình)`,
+      hours: `Giờ vào lăng thay đổi theo mùa và theo ngày. Thường mở buổi sáng: Thứ 3–5, Thứ 7–CN; nghỉ Thứ 2 & Thứ 6.`,
+      ticket: `Vào lăng: miễn phí (tham khảo). Một số khu tham quan lân cận có thể có vé.`,
+      busTips: [
+        `Nên đi buổi sáng sớm (đúng khung giờ mở).`,
+        `Trang phục lịch sự, không mang hành lý cồng kềnh.`
+      ],
+      note: `Lưu ý: trang phục lịch sự; có khung giờ vào lăng theo ngày/tuần.`
+    },
+    chua_mot_cot: {
+      keyword: 'One Pillar Pagoda Hanoi',
+      intro: `Chùa Một Cột là công trình kiến trúc độc đáo với hình dáng như bông sen vươn lên trên mặt nước, gắn với lịch sử thời Lý. Đây là một trong những biểu tượng văn hóa – tâm linh nổi tiếng nhất của Hà Nội.`,
+      address: `Khu di tích, quận Ba Đình, Hà Nội`,
+      hours: `07:00–18:00 hàng ngày`,
+      ticket: `Tham khảo: người Việt miễn phí; khách quốc tế ~25.000đ`,
+      busTips: [
+        `Có thể kết hợp tham quan Lăng Bác – Bảo tàng Hồ Chí Minh trong cùng buổi.`,
+        `Xuống bus gần khu Ba Đình, đi bộ vào cổng khu di tích.`
+      ],
+      note: `Gợi ý: có thể kết hợp tham quan Lăng Bác – Bảo tàng HCM trong cùng một buổi.`
+    },
+    tran_quoc: {
+      keyword: 'Tran Quoc Pagoda Hanoi',
+      intro: `Chùa Trấn Quốc là ngôi chùa cổ nổi tiếng bên Hồ Tây, được xem là một trong những ngôi chùa lâu đời nhất Việt Nam. Không gian thanh tịnh, tháp bảo và cảnh hồ tạo nên khung hình rất đẹp, đặc biệt lúc hoàng hôn.`,
+      address: `46 Thanh Niên, quận Tây Hồ, Hà Nội`,
+      hours: `Tham khảo: 08:00–16:00 (ngày thường); mùng 1 & rằm có thể mở sớm hơn`,
+      ticket: `Miễn phí (thường).`,
+      busTips: [
+        `Đi chiều tối để ngắm hoàng hôn Hồ Tây; kết hợp dạo đường Thanh Niên.`,
+        `Xuống bus gần đường Thanh Niên / Yên Phụ rồi đi bộ 3–8 phút.`
+      ],
+      note: `Gợi ý: đi chiều tối để ngắm hoàng hôn Hồ Tây; kết hợp dạo đường Thanh Niên.`
+    },
+    ho_tay: {
+      keyword: 'West Lake Hanoi',
+      intro: `Hồ Tây là hồ tự nhiên lớn nhất Hà Nội, nổi tiếng với cung đường dạo mát, quán cà phê view hồ và các điểm tâm linh như Phủ Tây Hồ, chùa Trấn Quốc. Đây là khu vực lý tưởng để thư giãn, đạp xe và ngắm hoàng hôn.`,
+      address: `Quận Tây Hồ, Hà Nội`,
+      hours: `Không giới hạn (khu vực công cộng)`,
+      ticket: `Miễn phí`,
+      busTips: [
+        `Chọn điểm xuống bus gần đường Thanh Niên / Lạc Long Quân / Âu Cơ tuỳ nơi bạn muốn dạo.`,
+        `Khung giờ đẹp: 16:30–18:30.`
+      ],
+      note: `Gợi ý: khung giờ đẹp là 16:30–18:30; buổi tối nhiều quán ăn/coffee.`
+    },
+    hoang_thanh: {
+      keyword: 'Imperial Citadel Thang Long',
+      intro: `Hoàng thành Thăng Long là di sản thế giới UNESCO, lưu giữ các tầng văn hóa – kiến trúc từ thời Lý, Trần, Lê đến Nguyễn. Tham quan tại đây giúp bạn hiểu sâu hơn về lịch sử kinh đô Thăng Long qua các khu khảo cổ và hiện vật.`,
+      address: `19C Hoàng Diệu, quận Ba Đình, Hà Nội`,
+      hours: `08:00–17:00 hàng ngày`,
+      ticket: `Tham khảo: 100.000đ/lượt (có thể thay đổi)`,
+      busTips: [
+        `Xuống bus gần Hoàng Diệu / Điện Biên Phủ rồi đi bộ vào cổng.`,
+        `Nên dành 1–2 giờ để tham quan trọn vẹn.`
+      ],
+      note: `Gợi ý: nên dành 1–2 giờ để tham quan trọn vẹn; mang theo nước uống.`
+    },
+    nha_tho_lon: {
+      keyword: 'St Joseph Cathedral Hanoi',
+      intro: `Nhà thờ Lớn Hà Nội mang kiến trúc Gothic kiểu Pháp, là điểm check‑in nổi tiếng và cũng là trung tâm sinh hoạt tôn giáo của khu vực. Khu vực quanh nhà thờ có nhiều quán cà phê, phố sách và không khí rất “phố”.`,
+      address: `40 Nhà Chung, quận Hoàn Kiếm, Hà Nội`,
+      hours: `Tham khảo: T2–T7: 08:00–11:00 & 14:00–20:00 • CN: 07:00–11:30 & 15:00–21:00`,
+      ticket: `Miễn phí`,
+      busTips: [
+        `Xuống bus ở khu Bờ Hồ/Tràng Thi rồi đi bộ 5–12 phút.`,
+        `Buổi tối lên đèn đẹp; lưu ý giờ lễ nếu muốn tham dự.`
+      ],
+      note: `Gợi ý: buổi tối lên đèn đẹp; lưu ý giờ lễ nếu muốn tham dự.`
+    },
+    nha_hat_lon: {
+      keyword: 'Hanoi Opera House',
+      intro: `Nhà hát Lớn Hà Nội là công trình kiến trúc Pháp tiêu biểu, nằm gần phố Tràng Tiền và khu trung tâm. Đây là điểm chụp ảnh đẹp, đồng thời thường xuyên có các chương trình biểu diễn nghệ thuật.`,
+      address: `1 Tràng Tiền, quận Hoàn Kiếm, Hà Nội`,
+      hours: `Tham quan theo tour/sự kiện (tuỳ lịch).`,
+      ticket: `Tuỳ chương trình/ tour (tham khảo).`,
+      busTips: [
+        `Xuống bus ở khu Tràng Tiền/Trần Hưng Đạo rồi đi bộ 2–8 phút.`,
+        `Có thể kết hợp dạo phố Tràng Tiền – Hồ Gươm.`
+      ],
+      note: `Gợi ý: chụp ảnh đẹp nhất vào chiều muộn/ban đêm khi bật đèn.`
+    },
+    cau_long_bien: {
+      keyword: 'Long Bien Bridge Hanoi',
+      intro: `Cầu Long Biên là cây cầu lịch sử bắc qua sông Hồng, gắn với nhiều dấu mốc của Hà Nội. Đây là điểm check‑in rất “chất”, nhất là lúc bình minh/hoàng hôn với đường ray và dòng sông rộng.`,
+      address: `Kết nối quận Hoàn Kiếm – Long Biên, Hà Nội`,
+      hours: `Không giới hạn (đi lại bình thường).`,
+      ticket: `Miễn phí`,
+      busTips: [
+        `Xuống bus gần ga Long Biên/đầu cầu rồi đi bộ lên cầu.`,
+        `Cẩn thận khi chụp ảnh, tránh khu vực nguy hiểm gần đường ray.`
+      ],
+      note: `Gợi ý: đi sáng sớm hoặc hoàng hôn để có ánh sáng đẹp.`
+    },
+    bao_tang_dth: {
+      keyword: 'Vietnam Museum of Ethnology Hanoi',
+      intro: `Bảo tàng Dân tộc học Việt Nam trưng bày phong phú về văn hoá của 54 dân tộc, có khu trưng bày ngoài trời rất thú vị. Đây là nơi phù hợp nếu bạn muốn tham quan “có chiều sâu” và chụp ảnh kiến trúc.`,
+      address: `Nguyễn Văn Huyên, quận Cầu Giấy, Hà Nội`,
+      hours: `08:30–17:30 (đóng cửa Thứ 2)`,
+      ticket: `Tham khảo: 40.000đ (có thể thay đổi)`,
+      busTips: [
+        `Xuống bus gần đường Nguyễn Văn Huyên / Cầu Giấy rồi đi bộ vào.`,
+        `Nên đi buổi sáng để có thời gian tham quan cả khu ngoài trời.`
+      ],
+      note: `Gợi ý: dành 2–3 giờ để xem kỹ; khu ngoài trời rất đáng đi.`
+    },
+    lotte: {
+      keyword: 'Lotte Center Hanoi Sky Deck',
+      intro: `Lotte Center Hanoi là toà nhà cao tầng nổi bật, có đài quan sát (Sky Deck) cho góc nhìn toàn cảnh thành phố. Phù hợp để ngắm hoàng hôn và chụp ảnh skyline Hà Nội.`,
+      address: `54 Liễu Giai, quận Ba Đình, Hà Nội`,
+      hours: `Tham khảo: 09:00–23:00 (tuỳ khu vực)`,
+      ticket: `Sky Deck: tuỳ thời điểm (tham khảo).`,
+      busTips: [
+        `Xuống bus trên đường Liễu Giai/Đào Tấn, đi bộ 2–6 phút.`,
+        `Nên đi chiều muộn để ngắm hoàng hôn và thành phố lên đèn.`
+      ],
+      note: `Gợi ý: chiều muộn là đẹp nhất; có thể đặt vé trước nếu đông.`
+    },
+    ben_xe_my_dinh: {
+      keyword: 'My Dinh Bus Station Hanoi',
+      intro: `Bến xe Mỹ Đình là một trung tâm trung chuyển lớn của Hà Nội, thuận tiện nếu bạn cần bắt xe liên tỉnh hoặc kết nối các tuyến bus nội đô.`,
+      address: `20 Phạm Hùng, Nam Từ Liêm, Hà Nội`,
+      hours: `Hoạt động cả ngày (tuỳ quầy/nhà xe).`,
+      ticket: `Tuỳ tuyến/nhà xe`,
+      busTips: [
+        `Khu vực Phạm Hùng thường đông giờ cao điểm; nên đi sớm.`,
+        `Kiểm tra điểm dừng cụ thể của tuyến bus gần cổng bạn muốn vào.`
+      ],
+      note: `Gợi ý: đến sớm để tránh đông, nhất là dịp lễ/tết.`
+    }
+  };
+
+  // ===== Modal controller =====
+  const poiModal = document.getElementById('poiModal');
+  const poiBackdrop = document.getElementById('poiBackdrop');
+  const poiModalBack = document.getElementById('poiModalBack');
+  const poiModalClose = document.getElementById('poiModalClose');
+  const poiModalTitle = document.getElementById('poiModalTitle');
+  const poiModalIntro = document.getElementById('poiModalIntro');
+  const poiMainImg = document.getElementById('poiMainImg');
+  const poiThumbs = document.getElementById('poiThumbs');
+  const poiPrev = document.getElementById('poiPrev');
+  const poiNext = document.getElementById('poiNext');
+  const poiCount = document.getElementById('poiCount');
+  const poiExtraNote = document.getElementById('poiExtraNote');
+  const poiGallery = document.getElementById('poiGallery');
+
+  let currentPoi = null;
+  let poiImages = [];
+  let poiIdx = 0;
+  let poiLoadingToken = 0;
+
+  function renderPoiGallery(){
+    if (!poiImages.length) return;
+    poiIdx = Math.max(0, Math.min(poiIdx, poiImages.length - 1));
+    if (poiGallery) poiGallery.classList.remove('portrait');
+
+    const src = poiImages[poiIdx];
+    poiMainImg.onerror = () => {
+      poiMainImg.onerror = null;
+      poiMainImg.src = svgPlaceholder(currentPoi?.name || 'POI', 'Không tải được ảnh');
+    };
+    poiMainImg.src = src;
+
+    // Tự động tối ưu hiển thị: ảnh dọc cho phép khung cao hơn, ảnh ngang/square giữ gọn
+    const applyFit = () => {
+      const nw = poiMainImg.naturalWidth || 0;
+      const nh = poiMainImg.naturalHeight || 0;
+      if (nw && nh && poiGallery){
+        const portrait = (nh / nw) > 1.08;
+        poiGallery.classList.toggle('portrait', portrait);
+      }
+    };
+    poiMainImg.onload = applyFit;
+    if (poiMainImg.complete) setTimeout(applyFit, 0);
+
+    if (poiCount) poiCount.textContent = `${poiIdx + 1}/${poiImages.length}`;
+
+    if (poiThumbs){
+      poiThumbs.innerHTML = poiImages.map((src, i) => {
+        const cls = i === poiIdx ? "poi-thumb active" : "poi-thumb";
+        return `<img class="${cls}" data-i="${i}" src="${src}" alt="Ảnh ${i+1}">`;
+      }).join("");
+
+      poiThumbs.querySelectorAll('img[data-i]').forEach(img => {
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = svgPlaceholder(currentPoi?.name || 'POI', 'Không tải được ảnh');
+        };
+        img.addEventListener('click', () => {
+          poiIdx = Number(img.getAttribute('data-i') || 0);
+          renderPoiGallery();
+        });
+      });
+    }
+  }
+
+  function renderPoiMetaHtml(d, busState){
+    const address = d.address ? `<div><b>Địa chỉ:</b> ${escapeHtml(d.address)}</div>` : '';
+    const hours = d.hours ? `<div><b>Giờ mở cửa:</b> ${escapeHtml(d.hours)}</div>` : '';
+    const ticket = d.ticket ? `<div><b>Giá vé:</b> ${escapeHtml(d.ticket)}</div>` : '';
+
+    const tips = (d.busTips && d.busTips.length)
+      ? `<div style="margin-top:10px"><b>Tips đi bus:</b><ul style="margin:8px 0 0 18px">${d.busTips.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul></div>`
+      : '';
+
+    let dyn = '';
+    if (busState?.loading){
+      dyn = `<div style="margin-top:10px; opacity:.8"><b>Gợi ý trạm gần nhất:</b> Đang tải…</div>`;
+    } else if (busState?.error){
+      dyn = `<div style="margin-top:10px; opacity:.85"><b>Gợi ý trạm gần nhất:</b> Không tải được.</div>`;
+    } else if (busState?.stop){
+      const s = busState.stop;
+      const routes = (busState.routes || []).map(r => (r.route_short_name || r.route_short || r.route_id)).filter(Boolean);
+      dyn = `
+        <div style="margin-top:10px">
+          <b>Trạm gần nhất:</b> ${escapeHtml(s.stop_name || s.stop_id)} • ${fmtMeters(s.distance_m)}
+          ${routes.length ? `<div style="margin-top:6px"><b>Tuyến qua trạm:</b> ${escapeHtml(routes.slice(0, 14).join(', '))}${routes.length>14?'…':''}</div>` : ''}
+        </div>
+      `.trim();
+    }
+
+    const note = d.note ? `<div style="margin-top:10px; opacity:.9">${escapeHtml(d.note)}</div>` : '';
+
+    return `
+      <div style="display:flex; flex-direction:column; gap:6px">
+        ${address}
+        ${hours}
+        ${ticket}
+        ${dyn}
+        ${tips}
+        ${note}
+      </div>
+    `.trim();
+  }
+
+  async function hydratePoiBusInfo(poi){
+    const d = POI_DETAILS[poi.id] || {};
+    try{
+      const ns = await postJSON(`${API_BASE}/nearest-stops`, { lat: poi.lat, lon: poi.lon, limit: 1, radius_m: 1500 });
+      const stop = (ns.stops || [])[0];
+      if (!stop){
+        if (poiExtraNote) poiExtraNote.innerHTML = renderPoiMetaHtml(d, { error: true });
+        return;
+      }
+      let routes = [];
+      try {
+        const rr = await postJSON(`${API_BASE}/stop-routes`, { stop_id: stop.stop_id, limit: 50 });
+        routes = rr.routes || [];
+      } catch { /* ignore */ }
+
+      if (poiExtraNote) poiExtraNote.innerHTML = renderPoiMetaHtml(d, { stop, routes });
+    } catch {
+      if (poiExtraNote) poiExtraNote.innerHTML = renderPoiMetaHtml(d, { error: true });
+    }
+  }
+
+  function openPoiModal(poi){
+    currentPoi = poi;
+    const token = ++poiLoadingToken;
+    const d = POI_DETAILS[poi.id] || {};
+
+    if (poiModalTitle) poiModalTitle.textContent = poi.name;
+    if (poiModalIntro) poiModalIntro.textContent = d.intro || poi.note || '—';
+
+    // Meta + tips (kèm bus info động theo stop gần nhất)
+    if (poiExtraNote){
+      poiExtraNote.innerHTML = renderPoiMetaHtml(d, { loading: true });
+    }
+
+    // Hiển thị placeholder trước, rồi tải ảnh online (có cache)
+    poiImages = [svgPlaceholder(poi.name || 'POI', 'Đang tải ảnh…')];
+    poiIdx = 0;
+    renderPoiGallery();
+
+    poiModal?.classList.add('show');
+    poiModal?.setAttribute('aria-hidden','false');
+
+    (async () => {
+      const imgs = await getPoiImages(poi);
+      if (token !== poiLoadingToken) return; // modal đã chuyển POI khác
+      poiImages = imgs && imgs.length ? imgs : [svgPlaceholder(poi.name || 'POI', 'Không tải được ảnh')];
+      poiIdx = 0;
+      renderPoiGallery();
+    })();
+
+    hydratePoiBusInfo(poi);
+  }
+
+  function closePoiModal(){
+    poiModal?.classList.remove('show');
+    poiModal?.setAttribute('aria-hidden','true');
+  }
+
+  poiBackdrop?.addEventListener('click', closePoiModal);
+  poiModalClose?.addEventListener('click', closePoiModal);
+  // Quay lại danh sách điểm du lịch
+  poiModalBack?.addEventListener('click', () => {
+    closePoiModal();
+    // đảm bảo layer POI có sẵn và mở lại danh sách
+    try { renderPOIsOnMap(); } catch {}
+    try { openPOIList(); } catch {}
+  });
+  poiPrev?.addEventListener('click', () => {
+    if (!poiImages.length) return;
+    poiIdx = (poiIdx - 1 + poiImages.length) % poiImages.length;
+    renderPoiGallery();
+  });
+  poiNext?.addEventListener('click', () => {
+    if (!poiImages.length) return;
+    poiIdx = (poiIdx + 1) % poiImages.length;
+    renderPoiGallery();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape" && poiModal?.classList.contains('show')) closePoiModal();
+  });
+
+
+  // ===== Map =====
+  const map = L.map('map', { zoomControl: false }).setView([21.0285, 105.8542], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+  // ===== State =====
+  let gpsLatLng = null;
+  let startLatLng = null;
+  let endLatLng = null;
+  let endStopId = null;
+
+  let isPickingStart = false;
+  let isPickingDest = false;
+
+  let gpsMarker = null;
+  let startMarker = null;
+  let endMarker = null;
+  let poiMarker = null;
+
+  let stopsEnabled = false;
+  let stopsLayer = L.layerGroup().addTo(map);
+  let poiLayer = L.layerGroup().addTo(map);
+
+  let routeLayers = [];
+  let transferMarkers = [];
+
+  let lastPlan = null;
+  let stopsIndex = null; // stop_id -> {name, lat, lon}
+
+  // ===== UI refs =====
+  const toastEl = document.getElementById('toast');
+
+  const sheet = document.getElementById('sheet');
+  const handle = document.getElementById('handle');
+  const sheetTitle = document.getElementById('sheetTitle');
+  const sheetSubtitle = document.getElementById('sheetSubtitle');
+  const sheetBody = document.getElementById('sheetBody');
+  const btnExpand = document.getElementById('btnExpand');
+  const btnCloseSheet = document.getElementById('btnCloseSheet');
+
+  const btnGPS = document.getElementById('btnGPS');
+  const btnPickStart = document.getElementById('btnPickStart');
+  const btnPickDest = document.getElementById('btnPickDest');
+  const btnToggleStops = document.getElementById('btnToggleStops');
+  const btnNearest = document.getElementById('btnNearest');
+  const btnClear = document.getElementById('btnClear');
+
+  const btnToggleControls = document.getElementById('btnToggleControls');
+  const fabGroup = document.getElementById('fabGroup');
+
+  const placeInput = document.getElementById('placeInput');
+  const btnPlaceGo = document.getElementById('btnPlaceGo');
+  const btnPOIs = document.getElementById('btnPOIs');
+
+  const subsheet = document.getElementById('subsheet');
+  const subBack = document.getElementById('subBack');
+  const subTitle = document.getElementById('subTitle');
+  const subHint = document.getElementById('subHint');
+  const subBody = document.getElementById('subBody');
+
+  // ===== Helpers =====
+  function showToast(msg, type="") {
+    toastEl.className = "toast show " + (type || "");
+    toastEl.innerHTML = msg;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toastEl.classList.remove('show'), 2600);
+  }
+
+  function setFabActive(el, active){
+    el.classList.toggle('active', !!active);
+  }
+
+  // HTML escape để render text an toàn trong innerHTML (tránh lỗi khi có ký tự đặc biệt)
+  function escapeHtml(input){
+    return String(input ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Helper POST JSON theo full URL (dùng cho các call kiểu `${API_BASE}/...`)
+  async function postJSON(url, body){
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+
+  // Toggle visibility of the right-side function buttons
+  let controlsHidden = false;
+  const controlsLabelEl = btnToggleControls ? btnToggleControls.querySelector('.label') : null;
+  const controlsIconEl  = btnToggleControls ? btnToggleControls.querySelector('.ico') : null;
+
+  function applyControlsHidden(hidden){
+    controlsHidden = !!hidden;
+    if (fabGroup) fabGroup.classList.toggle('hidden', controlsHidden);
+    if (controlsLabelEl) controlsLabelEl.textContent = controlsHidden ? "Hiện phím chức năng" : "Ẩn phím chức năng";
+    if (controlsIconEl) controlsIconEl.textContent = controlsHidden ? "☰" : "✕";
+    if (btnToggleControls) setFabActive(btnToggleControls, !controlsHidden);
+    try{ localStorage.setItem('busmaps_controls_hidden', controlsHidden ? '1' : '0'); }catch(_e){}
+  }
+
+  // Restore previous state
+  try{ controlsHidden = localStorage.getItem('busmaps_controls_hidden') === '1'; }
+  catch(_e){ controlsHidden = false; }
+  applyControlsHidden(controlsHidden);
+
+  // ===== Sheet visibility (only show when a route exists) =====
+  let sheetHasRoute = false;
+
+  function setSheetVisible(visible){
+    sheetHasRoute = !!visible;
+    sheet.classList.toggle('hidden', !sheetHasRoute);
+    if (!sheetHasRoute) sheet.classList.remove('expanded');
+  }
+
+  // Hide on startup until a route is drawn
+  setSheetVisible(false);
+
+
+  function setSheetState(expanded){
+    sheet.classList.toggle('expanded', !!expanded);
+  }
+
+  function openSubSheet(title, hint, html){
+    subTitle.textContent = title;
+    subHint.textContent = hint || "";
+    subBody.innerHTML = html || "";
+    subsheet.classList.add('open');
+    subsheet.setAttribute('aria-hidden','false');
+  }
+  function closeSubSheet(){
+    subsheet.classList.remove('open');
+    subsheet.setAttribute('aria-hidden','true');
+  }
+
+  function fmtMeters(m) {
+    if (m == null || isNaN(m)) return "—";
+    if (m < 1000) return `${Math.round(m)} m`;
+    return `${(m/1000).toFixed(2)} km`;
+  }
+
+  function nowHHMM() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2,'0') + ":" + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  function addMinutesHHMM(hhmm, mins) {
+    const [hh, mm] = hhmm.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hh, mm, 0, 0);
+    d.setMinutes(d.getMinutes() + mins);
+    return String(d.getHours()).padStart(2,'0') + ":" + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  // ETA estimate (no realtime)
+  const WALK_SPEED_MPS = 1.25; // ~4.5 km/h
+  const BUS_SPEED_MPS  = 5.5;  // ~19.8 km/h
+  const WAIT_INITIAL_BUS_SEC = 180;
+  const WAIT_TRANSFER_SEC = 120;
+  const BOARDING_SEC = 30;
+
+  function estimateEtaMinutes(summary){
+    const total = Number(summary?.distance ?? summary?.distance_m ?? 0);
+    const walk = Number(summary?.walking_distance ?? summary?.walking_distance_m ?? 0);
+    const transfers = Number(summary?.transfers ?? 0);
+
+    const bus = Math.max(0, total - walk);
+    const sec = (walk / WALK_SPEED_MPS) + (bus / BUS_SPEED_MPS)
+      + WAIT_INITIAL_BUS_SEC + transfers * WAIT_TRANSFER_SEC + BOARDING_SEC;
+    return Math.max(1, Math.round(sec / 60));
+  }
+
+  async function apiPost(path, body){
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(body || {})
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data && (data.error || data.message) ? (data.error || data.message) : `Lỗi ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function apiGet(path){
+    const res = await fetch(`${API_BASE}${path}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data && (data.error || data.message) ? (data.error || data.message) : `Lỗi ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function ensureStopsIndex(){
+    if (stopsIndex) return stopsIndex;
+    const data = await apiGet('/stops-all');
+    const idx = {};
+    (data.stops || []).forEach(s => {
+      idx[String(s.stop_id)] = { name: s.stop_name, lat: Number(s.stop_lat), lon: Number(s.stop_lon) };
+    });
+    stopsIndex = idx;
+    return stopsIndex;
+  }
+
+  function setStart(latlng, fromGPS=false){
+    startLatLng = latlng;
+    if (!startMarker) startMarker = L.marker(latlng, { title: "Điểm xuất phát" }).addTo(map);
+    else startMarker.setLatLng(latlng);
+    startMarker.bindPopup(fromGPS ? "Vị trí của bạn (xuất phát)" : "Điểm xuất phát").openPopup();
+    sheetSubtitle.textContent = "Đã chọn điểm xuất phát";
+  }
+
+  function setDestination(latlng, stopId=null, stopName=null){
+    endLatLng = latlng;
+    endStopId = stopId;
+    if (!endMarker) endMarker = L.marker(latlng, { title: "Điểm đến" }).addTo(map);
+    else endMarker.setLatLng(latlng);
+    const label = stopName ? `Điểm đến: ${stopName}` : "Điểm đến";
+    endMarker.bindPopup(label).openPopup();
+  }
+
+  function clearPicking(){
+    isPickingStart = false;
+    isPickingDest = false;
+    setFabActive(btnPickStart, false);
+    setFabActive(btnPickDest, false);
+    map.getContainer().style.cursor = "";
+  }
+
+  function clearRoute(removeDestination=false, silent=false){
+    routeLayers.forEach(l => map.removeLayer(l));
+    transferMarkers.forEach(m => map.removeLayer(m));
+    routeLayers = [];
+    transferMarkers = [];
+    lastPlan = null;
+
+    // Optionally remove destination marker as well
+    if (removeDestination){
+      endLatLng = null;
+      endStopId = null;
+      if (endMarker){
+        map.removeLayer(endMarker);
+        endMarker = null;
+      }
+    }
+
+    sheetTitle.textContent = "Lộ trình";
+    sheetSubtitle.textContent = "Chọn điểm đến để xem lộ trình";
+    sheetBody.innerHTML = "";
+
+    // Hide the sheet when there is no route
+    setSheetVisible(false);
+
+    if (!silent) showToast("Đã xoá lộ trình", "ok");
+  }
+
+
+  function decodePath(path){
+    // backend typically returns path as [[lat,lon],...]
+    if (!path) return [];
+    if (Array.isArray(path) && path.length && Array.isArray(path[0])) {
+      return path.map(p => [Number(p[0]), Number(p[1])]);
+    }
+    return [];
+  }
+
+  function drawPlan(plan){
+
+    // ===== Style tuyến (màu khác nhau theo tuyến xe) =====
+    const ROUTE_COLORS = [
+      "#5aa9ff", "#37d67a", "#f6c343", "#ff7a45", "#a66bff",
+      "#29d3c4", "#ff4d4f", "#8fd14f", "#ff5bbd", "#7aa6ff",
+      "#c9a227", "#2dd4bf"
+    ];
+
+    function hashStringToInt(str){
+      let h = 0;
+      for (let i = 0; i < str.length; i++){
+        h = (h * 31 + str.charCodeAt(i)) >>> 0;
+      }
+      return h;
+    }
+
+    function colorForRoute(seg){
+      const key = String(seg.route_id || seg.route_short_name || seg.route_name || seg.route_long_name || "BUS");
+      const idx = hashStringToInt(key) % ROUTE_COLORS.length;
+      return ROUTE_COLORS[idx];
+    }
+    clearRoute(false, true);
+    lastPlan = plan;
+
+    const summary = plan.summary || {};
+    const segments = plan.segments || [];
+
+    // Draw segment polylines
+    let allPts = [];
+    segments.forEach((seg, i) => {
+      const pts = decodePath(seg.path || seg.map_path || seg.shape || seg.polyline_points);
+      if (pts.length) {
+        const mode = String(seg.mode || "").toLowerCase();
+        const stype = String(seg.type || '').toLowerCase();
+        const isWalk = mode.includes('walk') || stype.includes('walk') || seg.route_id === 'WALK' || seg.route_short_name === 'WALK' || seg.route_id === 'walk_transfer';
+        const color = isWalk ? "#cfd8e3" : colorForRoute(seg);
+
+        // Nét đứt cho đoạn đi bộ, nét liền cho xe buýt
+        const polyOpts = {
+          color,
+          weight: isWalk ? 5 : 6,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
+          dashArray: isWalk ? "8 10" : null
+        };
+
+        // Vẽ 1 "viền" mỏng phía dưới để nhìn rõ trên nền map
+        const outline = L.polyline(pts, {
+          color: "rgba(0,0,0,0.35)",
+          weight: (isWalk ? 7 : 8),
+          opacity: 0.8,
+          lineCap: "round",
+          lineJoin: "round",
+          dashArray: isWalk ? "10 12" : null
+        }).addTo(map);
+        routeLayers.push(outline);
+
+        const pl = L.polyline(pts, polyOpts).addTo(map);
+        routeLayers.push(pl);
+        allPts = allPts.concat(pts);
+      }
+      // transfer marker at segment start (except first)
+      if (i > 0 && pts.length) {
+        const m = L.circleMarker(pts[0], { radius: 6, weight: 2, opacity: 0.9, fillOpacity: 0.9 }).addTo(map);
+        transferMarkers.push(m);
+      }
+    });
+
+    if (allPts.length) {
+      const bounds = L.latLngBounds(allPts);
+      map.fitBounds(bounds.pad(0.15));
+    }
+
+    // Bottom sheet content
+    const depart = nowHHMM();
+    const etaMin = estimateEtaMinutes(summary);
+    const arrive = addMinutesHHMM(depart, etaMin);
+
+    sheetTitle.textContent = "Lộ trình";
+    sheetSubtitle.textContent = `Giờ xuất phát ${depart} • Dự kiến đến ${arrive} (sau ${etaMin} phút)`;
+
+    const transfers = Number(summary.transfers ?? 0);
+    const totalDist = Number(summary.distance ?? summary.distance_m ?? 0);
+    const walkDist = Number(summary.walking_distance ?? summary.walking_distance_m ?? 0);
+
+    let html = `
+      <div class="card">
+        <div class="row">
+          <div class="badge">🕒 Xuất phát: <b>${depart}</b></div>
+          <div class="badge">⏳ ETA: <b>${etaMin} phút</b></div>
+          <div class="badge">🏁 Đến: <b>${arrive}</b></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <div><div class="k">Tổng quãng đường</div><div class="v">${fmtMeters(totalDist)}</div></div>
+          <div><div class="k">Đi bộ</div><div class="v">${fmtMeters(walkDist)}</div></div>
+          <div><div class="k">Đổi tuyến</div><div class="v">${transfers}</div></div>
+        </div>
+        <button class="btn danger" id="btnClearInSheet">Xoá lộ trình</button>
+      </div>
+      <div class="card">
+        <div class="k">Chi tiết chặng</div>
+    `;
+
+    segments.forEach((seg, idx) => {
+      const mode = String(seg.mode || "").toLowerCase();
+      const isWalk = mode.includes("walk") || seg.route_id === "WALK" || seg.route_short_name === "WALK";
+      const title = isWalk ? "🚶 Đi bộ" : `🚌 ${seg.route_name || seg.route_short_name || "Xe buýt"}`;
+      const from = seg.from || "Điểm A";
+      const to = seg.to || "Điểm B";
+      const dist = Number(seg.distance ?? 0);
+
+      html += `
+        <div class="seg">
+          <h4>${title}</h4>
+          <p><b>${from}</b> → <b>${to}</b></p>
+          <p>Quãng đường: ${fmtMeters(dist)} • Số trạm: ${seg.stops_count ?? "—"}</p>
+          <div class="seg-actions">
+            <div class="mini" data-action="focus" data-index="${idx}">Xem trên bản đồ</div>
+            <div class="mini" data-action="stops" data-index="${idx}">Danh sách trạm</div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    sheetBody.innerHTML = html;
+
+    // Show the route sheet now that we have a route
+    setSheetVisible(true);
+    setSheetState(false);
+
+    document.getElementById('btnClearInSheet')?.addEventListener('click', () => clearRoute(true));
+
+    // segment actions
+    sheetBody.querySelectorAll('[data-action="focus"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-index'));
+        const seg = segments[idx];
+        const pts = decodePath(seg.path);
+        if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.2));
+      });
+    });
+
+    sheetBody.querySelectorAll('[data-action="stops"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.getAttribute('data-index'));
+        const seg = segments[idx] || {};
+        const stopIds = seg.stop_ids || [];
+        const stopNames = seg.stop_names || [];
+        if (!stopIds.length && !stopNames.length) {
+          showToast("Chặng này không có danh sách trạm.", "warn");
+          return;
+        }
+        await ensureStopsIndex().catch(() => {});
+        const items = (stopIds.length ? stopIds : stopNames).map((x, i) => {
+          const sid = stopIds[i] ? String(stopIds[i]) : null;
+          const name = stopNames[i] || (sid && stopsIndex?.[sid]?.name) || String(x);
+          const coord = sid && stopsIndex?.[sid] ? `${stopsIndex[sid].lat.toFixed(5)}, ${stopsIndex[sid].lon.toFixed(5)}` : "";
+          const meta = coord ? `Tọa độ: ${coord}` : (sid ? `Mã trạm: ${sid}` : "");
+          return `<div class="list-item" data-stopid="${sid || ""}" data-lat="${sid && stopsIndex?.[sid] ? stopsIndex[sid].lat : ""}" data-lon="${sid && stopsIndex?.[sid] ? stopsIndex[sid].lon : ""}">
+                    <div class="name">${name}</div>
+                    <div class="meta">${meta}</div>
+                  </div>`;
+        }).join("");
+
+        openSubSheet("Danh sách trạm", "Chạm 1 trạm để phóng bản đồ tới vị trí đó", items);
+
+        // click -> focus
+        subBody.querySelectorAll('.list-item').forEach(el => {
+          el.addEventListener('click', () => {
+            const lat = Number(el.getAttribute('data-lat'));
+            const lon = Number(el.getAttribute('data-lon'));
+            if (!isFinite(lat) || !isFinite(lon)) {
+              showToast("Không có tọa độ trạm trong dữ liệu.", "warn");
+              return;
+            }
+            map.setView([lat, lon], Math.max(map.getZoom(), 16));
+            closeSubSheet();
+          });
+        });
+      });
+    });
+
+    setSheetState(true);
+  }
+
+  async function findRoute(){
+    if (!startLatLng) {
+      showToast("Vui lòng chọn điểm xuất phát hoặc lấy vị trí của bạn.", "warn");
+      return;
+    }
+    if (!endLatLng) {
+      showToast("Vui lòng chọn điểm đến.", "warn");
+      return;
+    }
+
+    const body = {
+      start: { lat: startLatLng.lat, lon: startLatLng.lng },
+      end: { lat: endLatLng.lat, lon: endLatLng.lng }
+    };
+    if (endStopId) body.end.stop_id = String(endStopId);
+
+    try{
+      showToast("Đang tìm lộ trình…", "warn");
+      const data = await apiPost('/find-route', body);
+
+      // Backend may return multi plans; pick selected or first
+      const plans = data.plans || data.options || null;
+      if (Array.isArray(plans) && plans.length){
+        const idx = Number(data.selected_plan_index ?? 0);
+        drawPlan(plans[Math.max(0, Math.min(idx, plans.length-1))]);
+      } else if (data.summary && data.segments){
+        drawPlan(data);
+      } else if (data.plan && data.plan.summary){
+        drawPlan(data.plan);
+      } else {
+        throw new Error("Không đọc được dữ liệu lộ trình từ backend.");
+      }
+      showToast("Đã tìm thấy lộ trình.", "ok");
+    } catch(err){
+      showToast(`Lỗi tìm lộ trình: ${err.message}`, "err");
+    }
+  }
+
+  function maybeFindRoute(){
+    // auto find when both selected
+    if (startLatLng && endLatLng) findRoute();
+  }
+
+  // ===== Map click selection (fix triệt để) =====
+  map.on('click', (e) => {
+    if (isPickingStart){
+      setStart(e.latlng, false);
+      showToast("Đã chọn điểm xuất phát", "ok");
+      clearPicking();
+      maybeFindRoute();
+      return;
+    }
+    if (isPickingDest){
+      setDestination(e.latlng, null, null);
+      showToast("Đã chọn điểm đến", "ok");
+      clearPicking();
+      maybeFindRoute();
+      return;
+    }
+  });
+
+  // ===== Stops in view =====
+  let stopsRefreshTimer = null;
+  async function refreshStopsInView(){
+    if (!stopsEnabled) return;
+    const b = map.getBounds();
+    if (!b) return;
+    const south = b.getSouth();
+    const north = b.getNorth();
+    const west  = b.getWest();
+    const east  = b.getEast();
+    const nums = [south, north, west, east].map(Number);
+    if (!nums.every(n => Number.isFinite(n))) return;
+    const payload = {
+      // Support both naming styles (backend compatibility)
+      south, west, north, east,
+      min_lat: south, max_lat: north,
+      min_lon: west,  max_lon: east,
+      limit: 2000,
+      connected_only: true
+    };
+    try{
+      const data = await apiPost('/stops-bbox', payload);
+      const stops = data.stops || [];
+      stopsLayer.clearLayers();
+
+      stops.forEach(s => {
+        const lat = Number(s.stop_lat ?? s.lat);
+        const lon = Number(s.stop_lon ?? s.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        const name = s.stop_name || s.name || "Trạm";
+        const sid = String(s.stop_id ?? s.id ?? "");
+        const m = L.circleMarker([lat, lon], { radius: 4.5, weight: 1.5, opacity: 0.9, fillOpacity: 0.7 });
+        m.bindTooltip(name, { direction: "top", opacity: 0.95 });
+        m.on('click', () => {
+          setDestination(L.latLng(lat, lon), sid || null, name);
+          showToast(`Đã chọn đích: ${name}`, "ok");
+          maybeFindRoute();
+        });
+        m.addTo(stopsLayer);
+      });
+    } catch(err){
+      showToast(`Không tải được trạm trong vùng: ${err.message}`, "err");
+    }
+  }
+
+  map.on('moveend', () => {
+    if (!stopsEnabled) return;
+    clearTimeout(stopsRefreshTimer);
+    stopsRefreshTimer = setTimeout(refreshStopsInView, 220);
+  });
+
+  // ===== POIs =====
+  function renderPOIsOnMap(){
+    poiLayer.clearLayers();
+    TOUR_POIS.forEach(p => {
+      const m = L.circleMarker([p.lat, p.lon], { radius: 7, weight: 2, opacity: 0.95, fillOpacity: 0.65 });
+      m.bindTooltip(p.name, { direction: "top", opacity: 0.95 });
+      m.on('click', () => selectPOI(p));
+      m.addTo(poiLayer);
+    });
+  }
+
+  async function selectPOI(p){
+    // Mở popup chi tiết POI (ảnh + giới thiệu)
+    openPoiModal(p);
+    // Mark POI
+    if (!poiMarker){
+      poiMarker = L.marker([p.lat, p.lon], { title: p.name }).addTo(map);
+    } else {
+      poiMarker.setLatLng([p.lat, p.lon]);
+    }
+    poiMarker.bindPopup(`🏛️ ${p.name}`).openPopup();
+    map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15));
+
+    // Find nearest stop to POI
+    try{
+      showToast(`Đang tìm trạm gần nhất tới: ${p.name}…`, "warn");
+      const data = await apiPost('/nearest-stops', { lat: p.lat, lon: p.lon, limit: 1 });
+      const stops = data.stops || data.nearest || [];
+      if (!stops.length) throw new Error("Không có trạm gần nhất.");
+      const s = stops[0];
+      const lat = Number(s.stop_lat ?? s.lat);
+      const lon = Number(s.stop_lon ?? s.lon);
+      const sid = String(s.stop_id ?? s.id ?? "");
+      const name = s.stop_name || s.name || sid || "Trạm gần nhất";
+
+      setDestination(L.latLng(lat, lon), sid || null, name);
+      showToast(`Trạm gần nhất: ${name}`, "ok");
+      closeSubSheet();
+      maybeFindRoute();
+    } catch(err){
+      showToast(`Không tìm được trạm gần nhất: ${err.message}`, "err");
+    }
+  }
+
+  function openPOIList(){
+    const items = TOUR_POIS.map(p => (
+      `<div class="list-item" data-poi="${p.id}">
+        <div class="name">${p.name}</div>
+        <div class="meta">${p.note || ""}</div>
+      </div>`
+    )).join("");
+
+    openSubSheet("Điểm du lịch Hà Nội", "Chạm một địa điểm để xem chi tiết; hệ thống sẽ tìm trạm gần nhất và vẽ lộ trình", items);
+
+    subBody.querySelectorAll('.list-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-poi');
+        const p = TOUR_POIS.find(x => x.id === id);
+        if (p) selectPOI(p);
+      });
+    });
+  }
+
+  // ===== Place search (Nominatim) =====
+  async function geocodePlace(q){
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q + " Hà Nội")}`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    const data = await res.json().catch(() => []);
+    if (!Array.isArray(data) || !data.length) return null;
+    return { lat: Number(data[0].lat), lon: Number(data[0].lon), name: data[0].display_name };
+  }
+
+  async function goPlace(){
+    const q = placeInput.value.trim();
+    if (q.length < 2) { showToast("Nhập tên địa điểm để tìm.", "warn"); return; }
+    try{
+      showToast("Đang tìm địa điểm…", "warn");
+      const g = await geocodePlace(q);
+      if (!g || !isFinite(g.lat) || !isFinite(g.lon)) throw new Error("Không tìm thấy địa điểm.");
+      map.setView([g.lat, g.lon], 15);
+      setDestination(L.latLng(g.lat, g.lon), null, q);
+      showToast("Đã chọn điểm đến.", "ok");
+      maybeFindRoute();
+    } catch(err){
+      showToast(`Lỗi tìm địa điểm: ${err.message}`, "err");
+    }
+  }
+
+  // ===== GPS =====
+  
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  function openLocationHelp(type, extra) {
+    const modal = document.getElementById('locationHelpModal');
+    const text = document.getElementById('locationHelpText');
+    const closeBtn = document.getElementById('btnCloseLocationHelp');
+    const retryBtn = document.getElementById('btnReloadAfterPerm');
+
+    if (!modal || !text || !closeBtn || !retryBtn) return;
+
+    const origin = location.origin;
+    let htmlMsg = "";
+
+    if (type === "insecure") {
+      htmlMsg = `
+        <div>Trên iPhone, trình duyệt thường <b>chặn GPS nếu trang không chạy HTTPS</b>.</div>
+        <ul class="lh-list">
+          <li>Bạn đang mở: <code>${origin}</code></li>
+          <li>Hãy chạy server bằng <b>HTTPS</b> (khuyến nghị) hoặc deploy lên hosting có HTTPS.</li>
+          <li>Nếu bạn dùng local, có thể chạy Flask với <code>ssl_context='adhoc'</code> và mở lại bằng <b>https://</b>.</li>
+        </ul>
+        <div style="margin-top:10px;">Sau khi mở bằng HTTPS, bấm lại <b>Vị trí của tôi</b>.</div>
+      `;
+    } else if (type === "denied") {
+      htmlMsg = `
+        <div>Bạn đã <b>từ chối quyền vị trí</b> cho trang này.</div>
+        <ul class="lh-list">
+          <li>Vào <b>Cài đặt</b> → <b>Safari</b> → <b>Location</b> → chọn <b>Ask</b> hoặc <b>Allow</b>.</li>
+          <li>Hoặc: <b>Cài đặt</b> → <b>Quyền riêng tư</b> → <b>Dịch vụ định vị</b> (bật) → cho phép Safari.</li>
+          <li>Sau đó quay lại trang và bấm <b>Thử lại</b>.</li>
+        </ul>
+        ${extra ? '<div style="margin-top:10px;opacity:.85">Chi tiết: <code>' + escapeHtml(extra) + '</code></div>' : ''}
+      `;
+    } else {
+      htmlMsg = `
+        <div>Không thể lấy GPS do thiết bị/trình duyệt.</div>
+        <ul class="lh-list">
+          <li>Kiểm tra <b>Dịch vụ định vị</b> đang bật.</li>
+          <li>Thử đổi sang <b>Safari</b> và tải lại trang.</li>
+        </ul>
+        ${extra ? '<div style="margin-top:10px;opacity:.85">Chi tiết: <code>' + escapeHtml(extra) + '</code></div>' : ''}
+      `;
+    }
+
+    text.innerHTML = htmlMsg;
+
+    const close = () => {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+    closeBtn.onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+    retryBtn.onclick = () => { close(); requestGPS(); };
+
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+
+function requestGPS() {
+    if (!navigator.geolocation) {
+      showToast("Thiết bị/trình duyệt không hỗ trợ GPS.", "err");
+      openLocationHelp("unsupported");
+      return;
+    }
+
+    // iOS/Safari thường yêu cầu HTTPS cho GPS (trừ localhost)
+    const isLocalhost = (location.hostname === "localhost" || location.hostname === "127.0.0.1");
+    if (!window.isSecureContext && !isLocalhost) {
+      showToast("GPS cần HTTPS trên iPhone. Vui lòng mở bằng https://", "err");
+      openLocationHelp("insecure");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const gpsLatLng = [pos.coords.latitude, pos.coords.longitude];
+      if (!gpsMarker) gpsMarker = L.marker(gpsLatLng, { title: "Vị trí của tôi" }).addTo(map);
+      else gpsMarker.setLatLng(gpsLatLng);
+      gpsMarker.bindPopup("Vị trí của tôi").openPopup();
+
+      // also set as start if not set
+      if (!startLatLng) setStart(gpsLatLng, true);
+      map.setView(gpsLatLng, Math.max(map.getZoom(), 15));
+      showToast("Đã lấy vị trí.", "ok");
+      maybeFindRoute();
+    }, (err) => {
+      // Permission denied / insecure origin / other
+      const msg = (err && err.message) ? err.message : "Không rõ nguyên nhân";
+      if (err && err.code === 1) { // PERMISSION_DENIED
+        showToast("Không lấy được GPS: chưa có quyền vị trí.", "err");
+        openLocationHelp("denied", msg);
+        return;
+      }
+      if (/permission|secure|Only secure origins|origin/i.test(msg)) {
+        showToast("GPS bị chặn do quyền/HTTPS.", "err");
+        openLocationHelp("insecure", msg);
+        return;
+      }
+      showToast(`Không lấy được GPS: ${msg}`, "err");
+      openLocationHelp("other", msg);
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 });
+  }
+
+  // ===== Event wiring =====
+  btnToggleControls.addEventListener('click', () => {
+    applyControlsHidden(!controlsHidden);
+  });
+
+  btnGPS.addEventListener('click', () => {
+    clearPicking();
+    requestGPS();
+  });
+
+  btnPickStart.addEventListener('click', () => {
+    isPickingStart = !isPickingStart;
+    isPickingDest = false;
+    setFabActive(btnPickStart, isPickingStart);
+    setFabActive(btnPickDest, false);
+    map.getContainer().style.cursor = isPickingStart ? "crosshair" : "";
+    if (isPickingStart) showToast("Chạm lên bản đồ để chọn điểm xuất phát.", "warn");
+  });
+
+  btnPickDest.addEventListener('click', () => {
+    isPickingDest = !isPickingDest;
+    isPickingStart = false;
+    setFabActive(btnPickDest, isPickingDest);
+    setFabActive(btnPickStart, false);
+    map.getContainer().style.cursor = isPickingDest ? "crosshair" : "";
+    if (isPickingDest) showToast("Chạm lên bản đồ để chọn điểm đến.", "warn");
+  });
+
+  btnToggleStops.addEventListener('click', async () => {
+    stopsEnabled = !stopsEnabled;
+    setFabActive(btnToggleStops, stopsEnabled);
+    btnToggleStops.querySelector('span:last-child').textContent = stopsEnabled ? "Ẩn trạm xe" : "Hiện trạm xe";
+    if (!stopsEnabled) {
+      stopsLayer.clearLayers();
+      showToast("Đã ẩn trạm.", "ok");
+      return;
+    }
+    showToast("Đang tải trạm trong vùng…", "warn");
+    await refreshStopsInView();
+    showToast("Đã hiển thị trạm trong vùng bản đồ.", "ok");
+  });
+
+  btnNearest.addEventListener('click', async () => {
+    if (!gpsLatLng && !startLatLng){
+      showToast("Hãy lấy vị trí (GPS) hoặc chọn điểm xuất phát trước.", "warn");
+      return;
+    }
+    const base = gpsLatLng || startLatLng;
+    try{
+      showToast("Đang tìm trạm gần nhất…", "warn");
+      const data = await apiPost('/nearest-stops', { lat: base.lat, lon: base.lng, limit: 12 });
+      const stops = data.stops || [];
+      if (!stops.length) throw new Error("Không tìm thấy trạm gần.");
+      // show list in subsheet
+      const items = stops.map(s => {
+        const name = s.stop_name || s.name || "Trạm";
+        const sid = String(s.stop_id ?? s.id ?? "");
+        const d = Number(s.distance ?? s.distance_m ?? 0);
+        return `<div class="list-item" data-sid="${sid}" data-lat="${Number(s.stop_lat ?? s.lat)}" data-lon="${Number(s.stop_lon ?? s.lon)}" data-name="${name.replaceAll('"','&quot;')}">
+                  <div class="name">${name}</div>
+                  <div class="meta">Cách ${fmtMeters(d)} • Chạm để đặt làm điểm đến</div>
+                </div>`;
+      }).join("");
+      openSubSheet("Trạm gần bạn", "Chạm một trạm để vẽ lộ trình tới trạm đó", items);
+
+      subBody.querySelectorAll('.list-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const lat = Number(el.getAttribute('data-lat'));
+          const lon = Number(el.getAttribute('data-lon'));
+          const sid = el.getAttribute('data-sid') || null;
+          const name = el.getAttribute('data-name') || null;
+          setDestination(L.latLng(lat, lon), sid, name);
+          closeSubSheet();
+          showToast(`Đã chọn đích: ${name}`, "ok");
+          maybeFindRoute();
+        });
+      });
+    } catch(err){
+      showToast(`Lỗi: ${err.message}`, "err");
+    }
+  });
+
+  btnClear.addEventListener('click', () => {
+    clearPicking();
+    clearRoute(true);
+  });
+
+  btnExpand.addEventListener('click', () => setSheetState(!sheet.classList.contains('expanded')));
+  btnCloseSheet.addEventListener('click', () => setSheetState(false));
+
+  btnPOIs.addEventListener('click', () => {
+    renderPOIsOnMap();
+    openPOIList();
+  });
+
+  subBack.addEventListener('click', () => closeSubSheet());
+
+  btnPlaceGo.addEventListener('click', goPlace);
+  placeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') goPlace(); });
+
+  // Drag handle to expand/collapse (simple)
+  let dragStartY = null;
+  handle.addEventListener('pointerdown', (e) => {
+    dragStartY = e.clientY;
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointerup', (e) => {
+    if (dragStartY == null) return;
+    const dy = e.clientY - dragStartY;
+    if (dy > 25) setSheetState(false);
+    if (dy < -25) setSheetState(true);
+    dragStartY = null;
+  });
+
+  // Startup ping
+  (async () => {
+    try{
+      await apiGet('/ping');
+      showToast("Kết nối backend thành công.", "ok");
+    }catch(err){
+      showToast(`Không kết nối được backend: ${err.message}`, "err");
+    }
+  })();
+
+})();
+// ===== Landing / Intro controller =====
+const INTRO_SKIP_KEY = "busmaps_intro_skip_v1";
+
+function openIntro(){
+  const el = document.getElementById("introOverlay");
+  if (!el) return;
+  el.classList.add("is-open");
+  el.setAttribute("aria-hidden", "false");
+}
+
+function closeIntro(){
+  const el = document.getElementById("introOverlay");
+  if (!el) return;
+  el.classList.remove("is-open");
+  el.setAttribute("aria-hidden", "true");
+}
+
+function shouldSkipIntro(){
+  return localStorage.getItem(INTRO_SKIP_KEY) === "1";
+}
+
+function wireIntro(){
+  const btn = document.getElementById("btnStartApp");
+  const ck = document.getElementById("introSkip");
+
+  if (ck) ck.checked = shouldSkipIntro();
+
+  if (btn){
+    btn.addEventListener("click", () => {
+      if (ck && ck.checked) localStorage.setItem(INTRO_SKIP_KEY, "1");
+      closeIntro();
+
+      // Nếu bạn muốn trì hoãn init app (tối ưu hơn), xem mục 4 bên dưới.
+      // Mặc định: app đã init sẵn, overlay chỉ che tương tác.
+    });
+  }
+
+  // Nhấn ESC để đóng intro (tuỳ bạn thích giữ hay bỏ)
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeIntro();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  wireIntro();
+
+  if (shouldSkipIntro()) {
+    closeIntro();
+  } else {
+    openIntro();
+  }
+});
+// ===== End Landing / Intro controller =====
+
+</script>
+
+    <script>
+    // PWA Service Worker
+    (function(){
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('/service-worker.js').catch(function(err){
+          console.warn('SW register failed', err);
+        });
+      });
+    })();
+    </script>
+    
+
+<!-- ===== GPS Permission Help Modal ===== -->
+<div id="locationHelpModal" aria-hidden="true">
+  <div class="lh-card" role="dialog" aria-modal="true" aria-label="Hướng dẫn bật GPS">
+    <div class="lh-title">Không lấy được vị trí GPS</div>
+    <div class="lh-body" id="locationHelpText">
+      <!-- filled by JS -->
+    </div>
+    <div class="lh-actions">
+      <button class="lh-btn" id="btnCloseLocationHelp" type="button">Đóng</button>
+      <button class="lh-btn primary" id="btnReloadAfterPerm" type="button">Thử lại</button>
+    </div>
+  </div>
+</div>
+<!-- ===== End GPS Permission Help Modal ===== -->
+
+</body>
+</html>
