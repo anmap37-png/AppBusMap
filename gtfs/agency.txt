@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone
+HANOI_BUS,Hanoi Bus,https://example.com,Asia/Ho_Chi_Minh,vi,
