@@ -347,6 +347,21 @@
       user-select:none;
     }
     .list-item:active{transform: translateY(1px)}
+
+    .list-item .li-row{ display:flex; align-items:center; gap: 10px; justify-content: space-between; }
+    .list-item .li-left{ min-width: 0; }
+    .poi-go{
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: rgba(59,130,246,.18);
+      color: #dbeafe;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .poi-go:hover{ background: rgba(59,130,246,.26); }
+
     .list-item .name{font-weight: 900}
     .list-item .meta{color: var(--muted); font-weight: 650; font-size: 12.5px; margin-top: 3px}
   
@@ -981,7 +996,15 @@
 
 <script>
 (() => {
-  const API_BASE = `${location.origin}/api`;
+  const API_BASE = (() => {
+    const qp = new URLSearchParams(location.search);
+    const override = qp.get("api") || qp.get("apiBase") || localStorage.getItem("API_BASE_OVERRIDE");
+    if (override) return override.replace(/\/$/, "");
+    // Nếu đang chạy trên GitHub Pages thì mặc định trỏ sang Render (backend)
+    if (location.hostname.endsWith("github.io")) return "https://appbusmap.onrender.com/api";
+    // Chạy local / cùng domain backend
+    return `${location.origin}/api`;
+  })();
 
   // ====== Điểm du lịch nổi tiếng (Hà Nội) ======
   const TOUR_POIS = [
@@ -1412,7 +1435,7 @@
     }
   }
 
-  function openPoiModal(poi){
+  async function openPoiModal(poi){
     currentPoi = poi;
     const token = ++poiLoadingToken;
     const d = POI_DETAILS[poi.id] || {};
@@ -1753,7 +1776,7 @@
     return [];
   }
 
-  function drawPlan(plan){
+  async function drawPlan(plan){
 
     // ===== Style tuyến (màu khác nhau theo tuyến xe) =====
     const ROUTE_COLORS = [
@@ -1954,8 +1977,8 @@
     }
 
     const body = {
-      start: { lat: startLatLng.lat, lon: startLatLng.lng },
-      end: { lat: endLatLng.lat, lon: endLatLng.lng }
+      start: { lat: startLatLng.lat, lon: (startLatLng.lng ?? startLatLng.lon ?? startLatLng.longitude) },
+      end: { lat: endLatLng.lat, lon: (endLatLng.lng ?? endLatLng.lon ?? endLatLng.longitude) }
     };
     if (endStopId) body.end.stop_id = String(endStopId);
 
@@ -2100,25 +2123,50 @@
   }
 
   function openPOIList(){
-    const items = TOUR_POIS.map(p => (
-      `<div class="list-item" data-poi="${p.id}">
-        <div class="name">${p.name}</div>
-        <div class="meta">${p.note || ""}</div>
-      </div>`
-    )).join("");
+      const html = POIS.map((p) => `
+        <div class="list-item" data-poi="${p.id}">
+          <div class="li-row">
+            <div class="li-left">
+              <div class="li-title">${p.name}</div>
+              <div class="li-meta">${p.desc || ""}</div>
+            </div>
+            <button class="poi-go" type="button" data-poi="${p.id}">Đi</button>
+          </div>
+        </div>
+      `).join("");
 
-    openSubSheet("Điểm du lịch Hà Nội", "Chạm một địa điểm để xem chi tiết; hệ thống sẽ tìm trạm gần nhất và vẽ lộ trình", items);
+      openSubSheet(
+        "Du lịch 🧭",
+        "Chạm vào địa điểm để xem thông tin/trạm gần nhất, hoặc bấm “Đi” để tạo lộ trình tới địa điểm đó.",
+        html
+      );
 
-    subBody.querySelectorAll('.list-item').forEach(el => {
-      el.addEventListener('click', () => {
-        const id = el.getAttribute('data-poi');
-        const p = TOUR_POIS.find(x => x.id === id);
-        if (p) selectPOI(p);
+      // Click vào item => giữ nguyên hành vi cũ (xem chi tiết / trạm gần nhất)
+      subBody.querySelectorAll(".list-item").forEach((el) => {
+        el.addEventListener("click", () => {
+          const id = el.getAttribute("data-poi");
+          const p = POIS.find((x) => x.id === id);
+          if (p) selectPOI(p);
+        });
       });
-    });
-  }
 
-  // ===== Place search (Nominatim) =====
+      // Click nút "Đi" => set điểm đến là tọa độ POI và tìm lộ trình ngay
+      subBody.querySelectorAll(".poi-go").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute("data-poi");
+          const p = POIS.find((x) => x.id === id);
+          if (!p) return;
+
+          // set điểm đến là POI (không phải trạm), backend sẽ tự tìm trạm gần nhất để lên/xuống
+          setDestination(L.latLng(p.lat, p.lon), null, p.name);
+          closeSubSheet();
+          findRoute();
+        });
+      });
+    }
+
+    // ===== Place search (Nominatim) =====
   async function geocodePlace(q){
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q + " Hà Nội")}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
