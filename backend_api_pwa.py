@@ -1160,7 +1160,7 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 @app.route("/")
 def index():
     # Serve frontend
-    return send_from_directory(".", "bus_finder_app.html")
+    return send_from_directory(".", "bus_finder_app_pwa.html")
 
 @app.route("/<path:path>")
 def static_proxy(path):
