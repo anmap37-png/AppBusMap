@@ -1155,19 +1155,43 @@ def plan_route(start_lat: float, start_lon: float,
     return True, {"status": "ok", "summary": summary, "segments": segments}
 
 # -------------------- Flask app --------------------
-app = Flask(__name__, static_folder=".", static_url_path="")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Use an absolute static folder so it works reliably on Render/Windows/Linux
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
+
+# Prefer the PWA frontend file; keep a fallback for older name
+FRONTEND_CANDIDATES = [
+    "bus_finder_app_pwa.html",
+    "bus_finder_app.html",
+]
+
+def _serve_frontend():
+    for fname in FRONTEND_CANDIDATES:
+        if os.path.isfile(os.path.join(BASE_DIR, fname)):
+            return send_from_directory(BASE_DIR, fname)
+    # If none found, raise 404 as before
+    return jsonify({"status": "error", "message": "Frontend file not found"}), 404
+
 
 @app.route("/")
 def index():
     # Serve frontend
-    return send_from_directory(".", "bus_finder_app.html")
+    return _serve_frontend()
+
 
 @app.route("/<path:path>")
 def static_proxy(path):
     # Do not let this handler swallow /api/* (POST would become 405)
     if path.startswith("api/"):
         return jsonify({"status": "error", "message": "API endpoint not found"}), 404
-    return send_from_directory(".", path)
+
+    # Serve static files if they exist; otherwise fall back to the frontend
+    full_path = os.path.join(BASE_DIR, path)
+    if os.path.isfile(full_path):
+        return send_from_directory(BASE_DIR, path)
+
+    return _serve_frontend()
 
 @app.route("/api/ping")
 def ping():
