@@ -347,21 +347,6 @@
       user-select:none;
     }
     .list-item:active{transform: translateY(1px)}
-
-    .list-item .li-row{ display:flex; align-items:center; gap: 10px; justify-content: space-between; }
-    .list-item .li-left{ min-width: 0; }
-    .poi-go{
-      flex: 0 0 auto;
-      border: 1px solid var(--border);
-      background: rgba(59,130,246,.18);
-      color: #dbeafe;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .poi-go:hover{ background: rgba(59,130,246,.26); }
-
     .list-item .name{font-weight: 900}
     .list-item .meta{color: var(--muted); font-weight: 650; font-size: 12.5px; margin-top: 3px}
   
@@ -660,198 +645,26 @@
 /* ===== End Landing / Intro styles ===== */
 
   
-/* ===== Mobile optimizations (UI only — keep all functions) ===== */
-@media (max-width: 520px) {
-  /* Safer viewport on iOS Safari */
-  .intro-overlay{
-    padding: calc(env(safe-area-inset-top) + 14px) 12px calc(env(safe-area-inset-bottom) + 14px);
-    align-items: flex-start;
-    overflow: auto;
-  }
-  .intro-card{
-    width: 100%;
-    max-width: 520px;
-    grid-template-columns: 1fr;
-    max-height: none;
-  }
-  .intro-right{
-    height: 150px;
-    min-height: 150px;
-    border-top-left-radius: 22px;
-    border-top-right-radius: 22px;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-  .intro-left{
-    padding: 18px 16px 16px;
-  }
-  .intro-credit{ font-size: 13px; }
-  .intro-title-public{
-    font-size: clamp(28px, 9vw, 44px);
-    letter-spacing: .02em;
-  }
-  .intro-title-transport{
-    font-size: clamp(34px, 10.5vw, 54px);
-    letter-spacing: .02em;
-    line-height: 0.98;
-    overflow-wrap: anywhere;  /* prevent clipping */
-    word-break: break-word;
-  }
-  .intro-sub{
-    font-size: 13px;
-    line-height: 1.45;
-  }
-  .intro-actions{
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .intro-btn{
-    padding: 10px 14px;
-    border-radius: 14px;
-    font-size: 14px;
-  }
-
-  /* Topbar: keep usable on small screens */
-  .topbar{
-    left: 10px;
-    right: 10px;
-    top: calc(env(safe-area-inset-top) + 8px);
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .search{
-    min-width: 0;
-    flex: 1 1 100%;
-    gap: 8px;
-    padding: 10px 12px;
-  }
-  #placeInput{
-    font-size: 14px;
-    min-width: 0;
-  }
-  .chip{
-    padding: 8px 12px;
-    border-radius: 999px;
-    font-size: 14px;
-  }
-  #btnPOIs{
-    align-self: flex-end;
-  }
-
-  /* Action buttons column */
-  .fab-col{
-    right: 10px;
-    top: auto;
-    bottom: calc(env(safe-area-inset-bottom) + 12px);
-  }
-  .fab{
-    padding: 10px 12px;
-    gap: 10px;
-  }
-
-  /* Bottom sheet */
-  .sheet{
-    left: 10px;
-    right: 10px;
-    bottom: calc(env(safe-area-inset-bottom) + 10px);
-  }
-
-  /* POI list panel */
-  .poi-panel{
-    left: 10px;
-    right: 10px;
-    top: calc(env(safe-area-inset-top) + 64px);
-    bottom: calc(env(safe-area-inset-bottom) + 10px);
-  }
-  .poi-list .poi-item{
-    padding: 12px 12px;
-  }
-
-  /* POI modal */
-  .poi-modal{
-    padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);
-  }
-  .poi-modal-card{
-    width: 100%;
-    max-width: 100%;
-    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
-  }
+/* ====== Tourism list buttons ====== */
+.li-actions{ display:flex; gap:8px; align-items:center; }
+.mini-btn{
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
-
-/* Extra: short-height phones (landscape) */
-@media (max-width: 740px) and (max-height: 520px) {
-  .intro-overlay{ padding: 10px; }
-  .intro-right{ height: 120px; min-height: 120px; }
-  .poi-modal-card{ max-height: calc(100vh - 20px); }
+.mini-btn:hover{ background: rgba(255,255,255,.18); }
+.mini-btn.ghost{
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.14);
+  color: rgba(255,255,255,.86);
 }
-/* ===== End mobile optimizations ===== */
-
-
-/* ===== GPS Permission Help (mobile) ===== */
-#locationHelpModal{
-  position: fixed;
-  inset: 0;
-  z-index: 100000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-  background: rgba(0,0,0,0.45);
-}
-#locationHelpModal.show{ display:flex; }
-#locationHelpModal .lh-card{
-  width: min(520px, 92vw);
-  max-height: 80vh;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: 16px;
-  background: rgba(17,24,39,0.92);
-  color: rgba(255,255,255,0.92);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
-  padding: 16px 16px 12px;
-}
-#locationHelpModal .lh-title{
-  font-weight: 900;
-  font-size: 16px;
-  margin-bottom: 10px;
-}
-#locationHelpModal .lh-body{
-  font-size: 13.5px;
-  line-height: 1.45;
-  color: rgba(255,255,255,0.85);
-}
-#locationHelpModal .lh-body b{ color: #fff; }
-#locationHelpModal .lh-actions{
-  display:flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 14px;
-}
-#locationHelpModal .lh-btn{
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.92);
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 800;
-}
-#locationHelpModal .lh-btn.primary{
-  background: rgba(59,130,246,0.85);
-  border-color: rgba(59,130,246,0.6);
-}
-#locationHelpModal .lh-list{
-  margin: 10px 0 0 16px;
-}
-#locationHelpModal .lh-list li{ margin: 6px 0; }
-#locationHelpModal code{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  background: rgba(255,255,255,0.08);
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-/* ===== End GPS Permission Help ===== */
+.li-title{ font-weight:700; margin-bottom: 2px; }
+.li-sub{ font-size: 12px; opacity: .8; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 </style>
 
@@ -996,15 +809,7 @@
 
 <script>
 (() => {
-  const API_BASE = (() => {
-    const qp = new URLSearchParams(location.search);
-    const override = qp.get("api") || qp.get("apiBase") || localStorage.getItem("API_BASE_OVERRIDE");
-    if (override) return override.replace(/\/$/, "");
-    // Nếu đang chạy trên GitHub Pages thì mặc định trỏ sang Render (backend)
-    if (location.hostname.endsWith("github.io")) return "https://appbusmap.onrender.com/api";
-    // Chạy local / cùng domain backend
-    return `${location.origin}/api`;
-  })();
+  const API_BASE = `${location.origin}/api`;
 
   // ====== Điểm du lịch nổi tiếng (Hà Nội) ======
   const TOUR_POIS = [
@@ -1435,7 +1240,7 @@
     }
   }
 
-  async function openPoiModal(poi){
+  function openPoiModal(poi){
     currentPoi = poi;
     const token = ++poiLoadingToken;
     const d = POI_DETAILS[poi.id] || {};
@@ -1505,6 +1310,26 @@
   let gpsLatLng = null;
   let startLatLng = null;
   let endLatLng = null;
+
+// Chuẩn hoá lat/lng: hỗ trợ dạng [lat,lng], {lat,lng}, {lat,lon}
+function normalizeLatLng(ll){
+  if (!ll) return null;
+  if (Array.isArray(ll) && ll.length >= 2){
+    const lat = parseFloat(ll[0]);
+    const lng = parseFloat(ll[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    return null;
+  }
+  if (typeof ll === 'object'){
+    const lat = parseFloat(ll.lat);
+    const lngRaw = (ll.lng ?? ll.lon);
+    const lng = parseFloat(lngRaw);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    return null;
+  }
+  return null;
+}
+
   let endStopId = null;
 
   let isPickingStart = false;
@@ -1714,22 +1539,38 @@
     return stopsIndex;
   }
 
-  function setStart(latlng, fromGPS=false){
-    startLatLng = latlng;
-    if (!startMarker) startMarker = L.marker(latlng, { title: "Điểm xuất phát" }).addTo(map);
-    else startMarker.setLatLng(latlng);
-    startMarker.bindPopup(fromGPS ? "Vị trí của bạn (xuất phát)" : "Điểm xuất phát").openPopup();
-    sheetSubtitle.textContent = "Đã chọn điểm xuất phát";
+  function setStart(latLng, label){
+  const ll = normalizeLatLng(latLng);
+  if (!ll){
+    showToast("Không lấy được toạ độ điểm xuất phát.", "warn");
+    return;
   }
+  startLatLng = ll;
+  startLabel = label || `Start (${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)})`;
 
-  function setDestination(latlng, stopId=null, stopName=null){
-    endLatLng = latlng;
-    endStopId = stopId;
-    if (!endMarker) endMarker = L.marker(latlng, { title: "Điểm đến" }).addTo(map);
-    else endMarker.setLatLng(latlng);
-    const label = stopName ? `Điểm đến: ${stopName}` : "Điểm đến";
-    endMarker.bindPopup(label).openPopup();
+  if (startMarker) map.removeLayer(startMarker);
+  startMarker = L.marker([ll.lat, ll.lng], { icon: startIcon }).addTo(map);
+  startMarker.bindPopup(`<b>Điểm xuất phát</b><br>${escapeHtml(startLabel)}`).openPopup();
+
+  updateRouteBadge();
+}
+
+  function setDestination(latLng, label, stopId=null){
+  const ll = normalizeLatLng(latLng);
+  if (!ll){
+    showToast("Không lấy được toạ độ điểm đến.", "warn");
+    return;
   }
+  endLatLng = ll;
+  endLabel = label || `End (${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)})`;
+  endStopId = stopId || null;
+
+  if (endMarker) map.removeLayer(endMarker);
+  endMarker = L.marker([ll.lat, ll.lng], { icon: endIcon }).addTo(map);
+  endMarker.bindPopup(`<b>Điểm đến</b><br>${escapeHtml(endLabel)}`).openPopup();
+
+  updateRouteBadge();
+}
 
   function clearPicking(){
     isPickingStart = false;
@@ -1776,7 +1617,7 @@
     return [];
   }
 
-  async function drawPlan(plan){
+  function drawPlan(plan){
 
     // ===== Style tuyến (màu khác nhau theo tuyến xe) =====
     const ROUTE_COLORS = [
@@ -1977,8 +1818,8 @@
     }
 
     const body = {
-      start: { lat: startLatLng.lat, lon: (startLatLng.lng ?? startLatLng.lon ?? startLatLng.longitude) },
-      end: { lat: endLatLng.lat, lon: (endLatLng.lng ?? endLatLng.lon ?? endLatLng.longitude) }
+      start: { lat: startLatLng.lat, lon: startLatLng.lng },
+      end: { lat: endLatLng.lat, lon: endLatLng.lng }
     };
     if (endStopId) body.end.stop_id = String(endStopId);
 
@@ -2123,50 +1964,52 @@
   }
 
   function openPOIList(){
-      const html = POIS.map((p) => `
-        <div class="list-item" data-poi="${p.id}">
-          <div class="li-row">
-            <div class="li-left">
-              <div class="li-title">${p.name}</div>
-              <div class="li-meta">${p.desc || ""}</div>
-            </div>
-            <button class="poi-go" type="button" data-poi="${p.id}">Đi</button>
-          </div>
-        </div>
-      `).join("");
+  const html = TOUR_POIS.map(p => `
+    <div class="list-item">
+      <div style="flex:1;min-width:0">
+        <div class="li-title">${escapeHtml(p.name)}</div>
+        <div class="li-sub">${escapeHtml(p.note || "")}</div>
+      </div>
+      <div class="li-actions">
+        <button class="mini-btn" data-action="go" data-id="${escapeHtml(p.id)}">Đi</button>
+        <button class="mini-btn ghost" data-action="view" data-id="${escapeHtml(p.id)}">Xem</button>
+      </div>
+    </div>
+  `).join("");
 
-      openSubSheet(
-        "Du lịch 🧭",
-        "Chạm vào địa điểm để xem thông tin/trạm gần nhất, hoặc bấm “Đi” để tạo lộ trình tới địa điểm đó.",
-        html
-      );
+  openSubSheet("Điểm du lịch", `
+    <div class="list">
+      ${html || "<div class='muted'>Chưa có dữ liệu điểm du lịch.</div>"}
+    </div>
+  `);
 
-      // Click vào item => giữ nguyên hành vi cũ (xem chi tiết / trạm gần nhất)
-      subBody.querySelectorAll(".list-item").forEach((el) => {
-        el.addEventListener("click", () => {
-          const id = el.getAttribute("data-poi");
-          const p = POIS.find((x) => x.id === id);
-          if (p) selectPOI(p);
-        });
-      });
+  const body = document.getElementById('subBody');
+  if (!body) return;
 
-      // Click nút "Đi" => set điểm đến là tọa độ POI và tìm lộ trình ngay
-      subBody.querySelectorAll(".poi-go").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const id = btn.getAttribute("data-poi");
-          const p = POIS.find((x) => x.id === id);
-          if (!p) return;
+  body.onclick = async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
 
-          // set điểm đến là POI (không phải trạm), backend sẽ tự tìm trạm gần nhất để lên/xuống
-          setDestination(L.latLng(p.lat, p.lon), null, p.name);
-          closeSubSheet();
-          findRoute();
-        });
-      });
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    const poi = TOUR_POIS.find(x => x.id === id);
+    if (!poi) return;
+
+    if (action === 'view'){
+      await selectPOI(poi);
+      return;
     }
 
-    // ===== Place search (Nominatim) =====
+    if (action === 'go'){
+      setDestination({ lat: poi.lat, lng: poi.lon }, poi.name, null);
+      closeSubSheet();
+      await maybeFindRoute();
+      return;
+    }
+  };
+}
+
+  // ===== Place search (Nominatim) =====
   async function geocodePlace(q){
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q + " Hà Nội")}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
@@ -2192,85 +2035,14 @@
   }
 
   // ===== GPS =====
-  
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  }
-
-  function openLocationHelp(type, extra) {
-    const modal = document.getElementById('locationHelpModal');
-    const text = document.getElementById('locationHelpText');
-    const closeBtn = document.getElementById('btnCloseLocationHelp');
-    const retryBtn = document.getElementById('btnReloadAfterPerm');
-
-    if (!modal || !text || !closeBtn || !retryBtn) return;
-
-    const origin = location.origin;
-    let htmlMsg = "";
-
-    if (type === "insecure") {
-      htmlMsg = `
-        <div>Trên iPhone, trình duyệt thường <b>chặn GPS nếu trang không chạy HTTPS</b>.</div>
-        <ul class="lh-list">
-          <li>Bạn đang mở: <code>${origin}</code></li>
-          <li>Hãy chạy server bằng <b>HTTPS</b> (khuyến nghị) hoặc deploy lên hosting có HTTPS.</li>
-          <li>Nếu bạn dùng local, có thể chạy Flask với <code>ssl_context='adhoc'</code> và mở lại bằng <b>https://</b>.</li>
-        </ul>
-        <div style="margin-top:10px;">Sau khi mở bằng HTTPS, bấm lại <b>Vị trí của tôi</b>.</div>
-      `;
-    } else if (type === "denied") {
-      htmlMsg = `
-        <div>Bạn đã <b>từ chối quyền vị trí</b> cho trang này.</div>
-        <ul class="lh-list">
-          <li>Vào <b>Cài đặt</b> → <b>Safari</b> → <b>Location</b> → chọn <b>Ask</b> hoặc <b>Allow</b>.</li>
-          <li>Hoặc: <b>Cài đặt</b> → <b>Quyền riêng tư</b> → <b>Dịch vụ định vị</b> (bật) → cho phép Safari.</li>
-          <li>Sau đó quay lại trang và bấm <b>Thử lại</b>.</li>
-        </ul>
-        ${extra ? '<div style="margin-top:10px;opacity:.85">Chi tiết: <code>' + escapeHtml(extra) + '</code></div>' : ''}
-      `;
-    } else {
-      htmlMsg = `
-        <div>Không thể lấy GPS do thiết bị/trình duyệt.</div>
-        <ul class="lh-list">
-          <li>Kiểm tra <b>Dịch vụ định vị</b> đang bật.</li>
-          <li>Thử đổi sang <b>Safari</b> và tải lại trang.</li>
-        </ul>
-        ${extra ? '<div style="margin-top:10px;opacity:.85">Chi tiết: <code>' + escapeHtml(extra) + '</code></div>' : ''}
-      `;
-    }
-
-    text.innerHTML = htmlMsg;
-
-    const close = () => {
-      modal.classList.remove('show');
-      modal.setAttribute('aria-hidden', 'true');
-    };
-    closeBtn.onclick = close;
-    modal.onclick = (e) => { if (e.target === modal) close(); };
-    retryBtn.onclick = () => { close(); requestGPS(); };
-
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden', 'false');
-  }
-
-
-function requestGPS() {
+  function requestGPS(){
     if (!navigator.geolocation) {
-      showToast("Thiết bị/trình duyệt không hỗ trợ GPS.", "err");
-      openLocationHelp("unsupported");
+      showToast("Trình duyệt không hỗ trợ GPS.", "err");
       return;
     }
-
-    // iOS/Safari thường yêu cầu HTTPS cho GPS (trừ localhost)
-    const isLocalhost = (location.hostname === "localhost" || location.hostname === "127.0.0.1");
-    if (!window.isSecureContext && !isLocalhost) {
-      showToast("GPS cần HTTPS trên iPhone. Vui lòng mở bằng https://", "err");
-      openLocationHelp("insecure");
-      return;
-    }
-
+    showToast("Đang lấy vị trí…", "warn");
     navigator.geolocation.getCurrentPosition((pos) => {
-      const gpsLatLng = [pos.coords.latitude, pos.coords.longitude];
+      gpsLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
       if (!gpsMarker) gpsMarker = L.marker(gpsLatLng, { title: "Vị trí của tôi" }).addTo(map);
       else gpsMarker.setLatLng(gpsLatLng);
       gpsMarker.bindPopup("Vị trí của tôi").openPopup();
@@ -2281,20 +2053,7 @@ function requestGPS() {
       showToast("Đã lấy vị trí.", "ok");
       maybeFindRoute();
     }, (err) => {
-      // Permission denied / insecure origin / other
-      const msg = (err && err.message) ? err.message : "Không rõ nguyên nhân";
-      if (err && err.code === 1) { // PERMISSION_DENIED
-        showToast("Không lấy được GPS: chưa có quyền vị trí.", "err");
-        openLocationHelp("denied", msg);
-        return;
-      }
-      if (/permission|secure|Only secure origins|origin/i.test(msg)) {
-        showToast("GPS bị chặn do quyền/HTTPS.", "err");
-        openLocationHelp("insecure", msg);
-        return;
-      }
-      showToast(`Không lấy được GPS: ${msg}`, "err");
-      openLocationHelp("other", msg);
+      showToast(`Không lấy được GPS: ${err.message}`, "err");
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 });
   }
 
@@ -2491,21 +2250,5 @@ document.addEventListener("DOMContentLoaded", () => {
     })();
     </script>
     
-
-<!-- ===== GPS Permission Help Modal ===== -->
-<div id="locationHelpModal" aria-hidden="true">
-  <div class="lh-card" role="dialog" aria-modal="true" aria-label="Hướng dẫn bật GPS">
-    <div class="lh-title">Không lấy được vị trí GPS</div>
-    <div class="lh-body" id="locationHelpText">
-      <!-- filled by JS -->
-    </div>
-    <div class="lh-actions">
-      <button class="lh-btn" id="btnCloseLocationHelp" type="button">Đóng</button>
-      <button class="lh-btn primary" id="btnReloadAfterPerm" type="button">Thử lại</button>
-    </div>
-  </div>
-</div>
-<!-- ===== End GPS Permission Help Modal ===== -->
-
 </body>
 </html>

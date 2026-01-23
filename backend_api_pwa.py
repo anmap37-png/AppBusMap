@@ -1155,43 +1155,19 @@ def plan_route(start_lat: float, start_lon: float,
     return True, {"status": "ok", "summary": summary, "segments": segments}
 
 # -------------------- Flask app --------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Use an absolute static folder so it works reliably on Render/Windows/Linux
-app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
-
-# Prefer the PWA frontend file; keep a fallback for older name
-FRONTEND_CANDIDATES = [
-    "bus_finder_app_pwa.html",
-    "bus_finder_app.html",
-]
-
-def _serve_frontend():
-    for fname in FRONTEND_CANDIDATES:
-        if os.path.isfile(os.path.join(BASE_DIR, fname)):
-            return send_from_directory(BASE_DIR, fname)
-    # If none found, raise 404 as before
-    return jsonify({"status": "error", "message": "Frontend file not found"}), 404
-
+app = Flask(__name__, static_folder=".", static_url_path="")
 
 @app.route("/")
 def index():
     # Serve frontend
-    return _serve_frontend()
-
+    return send_from_directory(".", "bus_finder_app.html")
 
 @app.route("/<path:path>")
 def static_proxy(path):
     # Do not let this handler swallow /api/* (POST would become 405)
     if path.startswith("api/"):
         return jsonify({"status": "error", "message": "API endpoint not found"}), 404
-
-    # Serve static files if they exist; otherwise fall back to the frontend
-    full_path = os.path.join(BASE_DIR, path)
-    if os.path.isfile(full_path):
-        return send_from_directory(BASE_DIR, path)
-
-    return _serve_frontend()
+    return send_from_directory(".", path)
 
 @app.route("/api/ping")
 def ping():
@@ -1312,33 +1288,36 @@ def api_find_route():
         except Exception:
             return None
 
-    def _get_lat(obj):
-        return _f(obj.get("lat") if obj else None) or _f(obj.get("latitude") if obj else None)
+    s_lat = _f(start.get("lat"))
+    s_lon = _f(start.get("lon"))
+    if s_lon is None:
+        s_lon = _f(start.get("lng"))
 
-    def _get_lon(obj):
-        if not obj:
-            return None
-        return _f(obj.get("lon")) or _f(obj.get("lng")) or _f(obj.get("longitude"))
+    e_lat = _f(end.get("lat"))
+    e_lon = _f(end.get("lon"))
+    if e_lon is None:
+        e_lon = _f(end.get("lng"))
 
-    s_lat = _get_lat(start)
-    s_lon = _get_lon(start)
+    # Nếu client gửi stop_id nhưng thiếu toạ độ, tự map từ GTFS stops
+    s_stop_id = start.get("stop_id") or start.get("stopId")
+    e_stop_id = end.get("stop_id") or end.get("stopId")
 
-    e_lat = _get_lat(end)
-    e_lon = _get_lon(end)
+    if (s_lat is None or s_lon is None) and s_stop_id:
+        ll = STOP_LL.get(str(s_stop_id))
+        if ll:
+            s_lat, s_lon = ll
+
+    if (e_lat is None or e_lon is None) and e_stop_id:
+        ll = STOP_LL.get(str(e_stop_id))
+        if ll:
+            e_lat, e_lon = ll
+
+    if s_lat is None or s_lon is None or e_lat is None or e_lon is None:
+        return jsonify({"status": "error", "message": "Thiếu tọa độ start/end (lat/lon)."}), 400
 
     end_stop_id = end.get("stop_id") or end.get("stopId") or end.get("stopID")
     if end_stop_id is not None:
         end_stop_id = str(end_stop_id)
-
-    # Nếu FE chỉ gửi stop_id mà thiếu lat/lon, fallback lấy tọa độ từ GTFS
-    if (e_lat is None or e_lon is None) and end_stop_id:
-        st = STOPS.get(end_stop_id)
-        if st is not None:
-            e_lat = _f(getattr(st, "lat", None))
-            e_lon = _f(getattr(st, "lon", None))
-
-    if s_lat is None or s_lon is None or e_lat is None or e_lon is None:
-        return jsonify({"status": "error", "message": "Thiếu tọa độ start/end (lat/lon)."}), 400
 
     depart_time = data.get("depart_time") or data.get("time") or data.get("depart") or None
     if depart_time is not None:
